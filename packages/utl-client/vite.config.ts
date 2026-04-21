@@ -2,16 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// Monaco Editor plugin - use require for CommonJS compatibility
-const monacoEditorPlugin = require('vite-plugin-monaco-editor').default;
-
 export default defineConfig({
-  plugins: [
-    react(),
-    monacoEditorPlugin({
-      languageWorkers: ['editorWorkerService'],
-    }),
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
