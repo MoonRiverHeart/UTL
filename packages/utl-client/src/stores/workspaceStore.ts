@@ -24,6 +24,7 @@ interface WorkspaceState {
   mindmaps: Mindmap[];
   currentMindmap: Mindmap | null;
   loading: boolean;
+  userRole: string | null;
 
   loadWorkspaces: () => Promise<void>;
   selectWorkspace: (id: string) => void;
@@ -44,6 +45,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   mindmaps: [],
   currentMindmap: null,
   loading: false,
+  userRole: null,
 
   loadWorkspaces: async () => {
     set({ loading: true });
@@ -57,7 +59,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   selectWorkspace: (id: string) => {
     const workspace = get().workspaces.find((w) => w.id === id);
-    set({ currentWorkspace: workspace, currentMindmap: null, mindmaps: [] });
+    const role = (workspace as any)?.role || 'viewer';
+    set({ currentWorkspace: workspace, userRole: role, currentMindmap: null, mindmaps: [] });
     if (workspace) {
       get().loadMindmaps(workspace.id);
     }
@@ -91,7 +94,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   clearWorkspace: () => {
-    set({ workspaces: [], currentWorkspace: null, mindmaps: [], currentMindmap: null });
+    set({ workspaces: [], currentWorkspace: null, mindmaps: [], currentMindmap: null, userRole: null });
   },
 
   loadMindmaps: async (workspaceId: string) => {

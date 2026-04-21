@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { message } from 'antd';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSocketStore } from '../../stores/socketStore';
 
 const { Text, Title } = Typography;
 
@@ -33,7 +34,8 @@ interface BranchVersionPanelProps {
 export default function BranchVersionPanel({ open, onClose }: BranchVersionPanelProps) {
   const params = useParams();
   const mindmapId = params.mindmapId;
-  const { nodes, relations } = useEditorStore();
+  const { nodes, relations, setNodes, setRelations } = useEditorStore();
+  const { socket, emitBranchCheckout } = useSocketStore();
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
@@ -54,6 +56,33 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
       loadBranches();
     }
   }, [open, mindmapId]);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleBranchChange = (by: string, branchId: string, snapshot: { nodes: any[]; relations: any[] }) => {
+      if (by !== useSocketStore.getState().mindmapId) {
+        message.info(`其他用户切换了分支，已同步数据`);
+        const restoredNodes = snapshot.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          name: n.name,
+          description: n.description || '',
+          x: n.position?.x ?? n.x ?? 100 + Math.random() * 200,
+          y: n.position?.y ?? n.y ?? 100 + Math.random() * 200,
+          metadata: n.metadata || {},
+        }));
+        setNodes(restoredNodes);
+        setRelations(snapshot.relations || []);
+      }
+    };
+
+    (socket as any).on('branch_changed', handleBranchChange);
+    
+    return () => {
+      (socket as any).off('branch_changed');
+    };
+  }, [socket, setNodes, setRelations]);
 
   const loadBranches = async () => {
     setLoading(true);
@@ -112,8 +141,9 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
       message.success('已切换分支');
       
       const snapshot = res.data.snapshot as { nodes: any[]; relations: any[] } | null;
+      const branch = res.data.branch;
+      
       if (snapshot && snapshot.nodes.length > 0) {
-        const { setNodes, setRelations } = useEditorStore.getState();
         const restoredNodes = snapshot.nodes.map(n => ({
           id: n.id,
           type: n.type,
@@ -126,14 +156,17 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
         setNodes(restoredNodes);
         setRelations(snapshot.relations || []);
         message.info(`已加载 ${restoredNodes.length} 个节点`);
+        
+        emitBranchCheckout(branchId, { nodes: restoredNodes, relations: snapshot.relations || [] });
       } else {
         message.info('该分支暂无数据，请添加节点后保存版本');
-        const { setNodes, setRelations } = useEditorStore.getState();
         setNodes([]);
         setRelations([]);
+        
+        emitBranchCheckout(branchId, { nodes: [], relations: [] });
       }
       
-      setCurrentBranch(res.data.branch);
+      setCurrentBranch(branch);
       loadVersions(branchId);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } } };

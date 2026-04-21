@@ -187,6 +187,18 @@ export function initWebSocket(io: Server) {
       }
     });
 
+    socket.on('branch_checkout', (data: { mindmapId: string; branchId: string; snapshot: { nodes: any[]; relations: any[] } }) => {
+      const user = connectedUsers.get(socket.id);
+      if (user?.mindmapId === data.mindmapId) {
+        user.branchId = data.branchId;
+        socket.to(`mindmap:${data.mindmapId}`).emit('branch_changed', {
+          by: userId,
+          branchId: data.branchId,
+          snapshot: data.snapshot,
+        });
+      }
+    });
+
     socket.on('chat_message', (data: { mindmapId: string; userId: string; username: string; content: string }) => {
       const message: ChatMessage = {
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,

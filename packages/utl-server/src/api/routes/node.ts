@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../../db/client';
 import { authMiddleware } from '../middleware/auth';
+import { checkWorkspacePermission, checkNodePermission } from '../middleware/permission';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.get('/mindmap/:mindmapId', authMiddleware, async (req: Request, res: Resp
   }
 });
 
-router.post('/mindmap/:mindmapId', authMiddleware, async (req: Request, res: Response) => {
+router.post('/mindmap/:mindmapId', authMiddleware, checkWorkspacePermission(['owner', 'editor']), async (req: Request, res: Response) => {
   try {
     const { mindmapId } = req.params;
     const { type, name, description, parentId, position, metadata } = req.body;
@@ -89,7 +90,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, checkNodePermission(['owner', 'editor']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, position, metadata } = req.body;
@@ -105,7 +106,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, checkNodePermission(['owner', 'editor']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.node.delete({ where: { id } });

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Button, Input, Drawer, Form, Space, Tag, message, Popconfirm, Select, Dropdown } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Input, Drawer, Form, Space, Tag, message, Modal, Dropdown } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { useEditorStore } from '../../../stores/editorStore';
 import { useSocketStore } from '../../../stores/socketStore';
@@ -58,9 +58,11 @@ interface EditingRelationState {
 export default function BlueprintEditor() {
   const params = useParams();
   const location = useLocation();
-  const { currentMindmap } = useWorkspaceStore();
+  const { currentMindmap, userRole } = useWorkspaceStore();
   const { nodes, setNodes, relations, setRelations, selectedNodes, selectNode, clearSelection } = useEditorStore();
-  const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, socket, onlineUsers } = useSocketStore();
+  const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, emitBranchCheckout, socket, onlineUsers } = useSocketStore();
+  
+  const isViewer = userRole === 'viewer';
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -256,6 +258,10 @@ export default function BlueprintEditor() {
   };
 
   const handleStartConnection = (e: React.MouseEvent, nodeId: string) => {
+    if (isViewer) {
+      message.warning('查看者无法创建连接');
+      return;
+    }
     e.stopPropagation();
     e.preventDefault();
     const node = nodes.find(n => n.id === nodeId);
@@ -552,13 +558,14 @@ export default function BlueprintEditor() {
         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
         <Space size="middle">
-          <Dropdown menu={{ items: nodeTypeMenuItems }} placement="bottomLeft">
-            <Button type="primary" icon={<PlusOutlined />} style={{ borderRadius: 6 }}>快速添加</Button>
+          {isViewer && <Tag color="orange" icon={<LockOutlined />}>查看模式</Tag>}
+          <Dropdown menu={{ items: nodeTypeMenuItems }} placement="bottomLeft" disabled={isViewer}>
+            <Button type="primary" icon={<PlusOutlined />} style={{ borderRadius: 6 }} disabled={isViewer}>快速添加</Button>
           </Dropdown>
-          <Button icon={<PlusOutlined />} onClick={handleAddNode} style={{ borderRadius: 6 }}>添加节点</Button>
-          <Button icon={<EditOutlined />} onClick={handleEditNode} disabled={selectedNodes.length !== 1} style={{ borderRadius: 6 }}>编辑</Button>
+          <Button icon={<PlusOutlined />} onClick={handleAddNode} style={{ borderRadius: 6 }} disabled={isViewer}>添加节点</Button>
+          <Button icon={<EditOutlined />} onClick={handleEditNode} disabled={selectedNodes.length !== 1 || isViewer} style={{ borderRadius: 6 }}>编辑</Button>
           <Popconfirm title="确定删除选中的节点？" onConfirm={handleDeleteNode}>
-            <Button icon={<DeleteOutlined />} danger disabled={selectedNodes.length === 0} style={{ borderRadius: 6 }}>删除</Button>
+            <Button icon={<DeleteOutlined />} danger disabled={selectedNodes.length === 0 || isViewer} style={{ borderRadius: 6 }}>删除</Button>
           </Popconfirm>
         </Space>
         <Space>
@@ -640,23 +647,25 @@ export default function BlueprintEditor() {
                       <div style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>{node.name}</div>
                     )}
                   </div>
-                  <div 
-                    style={{ 
-                      position: 'absolute', 
-                      right: -8, 
-                      top: '50%', 
-                      marginTop: -8, 
-                      width: 16, 
-                      height: 16, 
-                      background: '#1890ff', 
-                      borderRadius: '50%', 
-                      cursor: 'crosshair', 
-                      border: '2px solid #fff',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseDown={(e) => handleStartConnection(e, node.id)}
-                    title="拖拽创建连接"
-                  />
+                  {!isViewer && (
+                    <div 
+                      style={{ 
+                        position: 'absolute', 
+                        right: -8, 
+                        top: '50%', 
+                        marginTop: -8, 
+                        width: 16, 
+                        height: 16, 
+                        background: '#1890ff', 
+                        borderRadius: '50%', 
+                        cursor: 'crosshair', 
+                        border: '2px solid #fff',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }}
+                      onMouseDown={(e) => handleStartConnection(e, node.id)}
+                      title="拖拽创建连接"
+                    />
+                  )}
                   <div 
                     style={{ 
                       position: 'absolute', 

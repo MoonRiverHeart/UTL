@@ -25,6 +25,7 @@ interface SocketState {
   emitNodeDelete: (nodeId: string) => void;
   emitRelationCreate: (relation: Record<string, unknown>) => void;
   emitRelationDelete: (relationId: string) => void;
+  emitBranchCheckout: (branchId: string, snapshot: { nodes: any[]; relations: any[] }) => void;
   emitCursorMove: (cursor: { x: number; y: number }, nodeId?: string) => void;
   sendChatMessage: (content: string) => void;
 }
@@ -134,6 +135,13 @@ export const useSocketStore = create<SocketState>((set, get) => ({
       }
     });
 
+    newSocket.on('branch_changed', (data: { by: string; branchId: string; snapshot: { nodes: any[]; relations: any[] } }) => {
+      const { onBranchChange } = get() as any;
+      if (onBranchChange) {
+        onBranchChange(data.by, data.branchId, data.snapshot);
+      }
+    });
+
     set({ socket: newSocket, mindmapId });
   },
 
@@ -180,6 +188,13 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const { socket, mindmapId } = get();
     if (socket && mindmapId) {
       socket.emit('relation_delete', { relationId });
+    }
+  },
+
+  emitBranchCheckout: (branchId: string, snapshot: { nodes: any[]; relations: any[] }) => {
+    const { socket, mindmapId } = get();
+    if (socket && mindmapId) {
+      socket.emit('branch_checkout', { mindmapId, branchId, snapshot });
     }
   },
 
