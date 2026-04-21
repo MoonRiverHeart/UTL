@@ -1,0 +1,236 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  passwordHash  String
+  email         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  workspaces        Workspace[]
+  collaborations    Collaborator[]
+  branches          Branch[]
+  versions          Version[]
+  mergeRequests     MergeRequest[]
+  testResults       TestResult[]    @relation("ExecutedTestResults")
+  issues            Issue[]         @relation("ReportedIssues")
+}
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  mindmaps       Mindmap[]
+  collaborators  Collaborator[]
+}
+
+model Collaborator {
+  id          String   @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  role        String   @default("viewer")
+  joinedAt    DateTime @default(now())
+  
+  @@unique([workspaceId, userId])
+}
+
+model Mindmap {
+  id              String   @id @default(uuid())
+  name            String
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  rootNodeId      String?
+  utlSource       String?
+  currentBranchId String   @default("main")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  nodes        Node[]
+  branches     Branch[]
+  relations    Relation[]    @relation("MindmapRelations")
+  mergeRequests MergeRequest[]
+}
+
+model Branch {
+  id             String   @id @default(uuid())
+  mindmapId      String
+  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id])
+  name           String
+  description    String?
+  parentBranchId String?
+  parentBranch   Branch?  @relation("BranchHierarchy", fields: [parentBranchId], references: [id])
+  childBranches  Branch[] @relation("BranchHierarchy")
+  headVersionId  String
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id])
+  status         String   @default("active")
+  mergedTo       String?
+  mergedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  versions      Version[]
+  mergeRequests MergeRequest[] @relation("SourceBranch")
+  targetMRs     MergeRequest[] @relation("TargetBranch")
+  
+  @@unique([mindmapId, name])
+}
+
+model Version {
+  id              String   @id @default(uuid())
+  mindmapId       String
+  branchId        String
+  branch          Branch   @relation(fields: [branchId], references: [id])
+  versionNumber   String
+  message         String
+  authorId        String
+  author          User     @relation(fields: [authorId], references: [id])
+  parentVersionId String?
+  parentVersion   Version? @relation("VersionHistory", fields: [parentVersionId], references: [id])
+  childVersions   Version[] @relation("VersionHistory")
+  snapshot        Json
+  diff            Json?
+  createdAt       DateTime @default(now())
+  tags            String[]
+  
+  @@unique([branchId, versionNumber])
+}
+
+model MergeRequest {
+  id             String   @id @default(uuid())
+  mindmapId      String
+  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id])
+  sourceBranchId String
+  sourceBranch   Branch   @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  targetBranchId String
+  targetBranch   Branch   @relation("TargetBranch", fields: [targetBranchId], references: [id])
+  title          String
+  description    String?
+  authorId       String
+  author         User     @relation(fields: [authorId], references: [id])
+  status         String   @default("open")
+  reviewers      String[]
+  approvedBy     String[]
+  mergedBy       String?
+  mergedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  conflicts MergeConflict[]
+}
+
+model MergeConflict {
+  id             String   @id @default(uuid())
+  mergeRequestId String
+  mergeRequest   MergeRequest @relation(fields: [mergeRequestId], references: [id])
+  nodeId         String
+  sourceVersion  Json
+  targetVersion  Json
+  resolution     String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+}
+
+model Node {
+  id          String   @id @default(uuid())
+  type        String
+  name        String
+  description String?
+  workspaceId String
+  mindmapId   String
+  mindmap     Mindmap  @relation(fields: [mindmapId], references: [id])
+  parentId    String?
+  parent      Node?    @relation("NodeHierarchy", fields: [parentId], references: [id])
+  children    Node[]   @relation("NodeHierarchy")
+  position    Json
+  metadata    Json
+  versionId   String
+  branchId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  relationsAsSource Relation[] @relation("RelationSource")
+  relationsAsTarget Relation[] @relation("RelationTarget")
+  testResults       TestResult[]
+  issues            Issue[]
+}
+
+model Relation {
+  id        String   @id @default(uuid())
+  mindmapId String
+  mindmap   Mindmap  @relation("MindmapRelations", fields: [mindmapId], references: [id])
+  sourceId  String
+  source    Node     @relation("RelationSource", fields: [sourceId], references: [id])
+  targetId  String
+  target    Node     @relation("RelationTarget", fields: [targetId], references: [id])
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model TestResult {
+  id         String   @id @default(uuid())
+  testCaseId String
+  testCase   Node     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  status     String
+  executedAt DateTime?
+  executedBy String?
+  executor   User?    @relation("ExecutedTestResults", fields: [executedBy], references: [id])
+  environment Json?
+  duration   Int?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  issues Issue[]
+}
+
+model Issue {
+  id            String   @id @default(uuid())
+  testCaseId    String
+  testCase      Node     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testResultId  String?
+  testResult    TestResult? @relation(fields: [testResultId], references: [id])
+  title         String
+  description   String
+  severity      String
+  priority      String
+  status        String
+  reportedBy    String
+  reporter      User     @relation("ReportedIssues", fields: [reportedBy], references: [id])
+  reportedAt    DateTime @default(now())
+  assignedTo    String?
+  resolvedBy    String?
+  resolvedAt    DateTime?
+  resolution    String?
+  resolutionType String?
+  screenshots   String[]
+  relatedNodes  String[]
+  
+  attachments Attachment[]
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  url       String
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+}
