@@ -68,6 +68,13 @@ export const checkNodePermission = (requiredRoles: string[] = ['owner', 'editor'
 
       const workspace = node.mindmap.workspace;
 
+      console.log('Permission check:', {
+        userId,
+        ownerId: workspace.ownerId,
+        workspaceId: workspace.id,
+        isOwner: workspace.ownerId === userId,
+      });
+
       if (workspace.ownerId === userId) {
         (req as any).userRole = 'owner';
         return next();
@@ -75,6 +82,11 @@ export const checkNodePermission = (requiredRoles: string[] = ['owner', 'editor'
 
       const collaborator = await prisma.collaborator.findUnique({
         where: { workspaceId_userId: { workspaceId: workspace.id, userId } },
+      });
+
+      console.log('Collaborator check:', {
+        collaborator,
+        requiredRoles,
       });
 
       if (!collaborator) {
@@ -89,6 +101,7 @@ export const checkNodePermission = (requiredRoles: string[] = ['owner', 'editor'
       (req as any).mindmapId = node.mindmapId;
       next();
     } catch (error) {
+      console.error('Permission error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   };

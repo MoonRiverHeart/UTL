@@ -66,7 +66,7 @@ export default function NodePropertyPanel({ open, onClose }: NodePropertyPanelPr
     : null;
 
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && open) {
       form.setFieldsValue({
         name: selectedNode.name,
         description: selectedNode.description || '',
@@ -77,7 +77,7 @@ export default function NodePropertyPanel({ open, onClose }: NodePropertyPanelPr
       
       loadInheritanceInfo(selectedNode);
     }
-  }, [selectedNode, form]);
+  }, [selectedNode, form, open]);
 
   const loadInheritanceInfo = async (node: NodeData) => {
     if (node.type !== 'function' || !node.metadata?.extendsNodes?.length) {
