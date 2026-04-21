@@ -188,8 +188,9 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
           });
           message.success('合并成功');
           loadBranches();
-        } catch {
-          message.error('合并失败');
+        } catch (err: unknown) {
+          const error = err as { response?: { data?: { error?: string; details?: string } } };
+          message.error(error.response?.data?.details || error.response?.data?.error || '合并失败');
         }
       },
     });
