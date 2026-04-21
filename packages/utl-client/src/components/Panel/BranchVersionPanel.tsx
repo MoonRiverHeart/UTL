@@ -102,12 +102,42 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
   };
 
   const handleCheckoutBranch = async (branchId: string) => {
+    if (!mindmapId) {
+      message.warning('请先选择脑图');
+      return;
+    }
+    
     try {
-      await api.post(`/branches/${branchId}/checkout`, { mindmapId });
+      const res = await api.post(`/branches/${branchId}/checkout`, { mindmapId });
       message.success('已切换分支');
-      loadBranches();
-    } catch {
-      message.error('切换失败');
+      
+      const snapshot = res.data.snapshot as { nodes: any[]; relations: any[] } | null;
+      if (snapshot && snapshot.nodes.length > 0) {
+        const { setNodes, setRelations } = useEditorStore.getState();
+        const restoredNodes = snapshot.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          name: n.name,
+          description: n.description || '',
+          x: n.position?.x ?? n.x ?? 100 + Math.random() * 200,
+          y: n.position?.y ?? n.y ?? 100 + Math.random() * 200,
+          metadata: n.metadata || {},
+        }));
+        setNodes(restoredNodes);
+        setRelations(snapshot.relations || []);
+        message.info(`已加载 ${restoredNodes.length} 个节点`);
+      } else {
+        message.info('该分支暂无数据，请添加节点后保存版本');
+        const { setNodes, setRelations } = useEditorStore.getState();
+        setNodes([]);
+        setRelations([]);
+      }
+      
+      setCurrentBranch(res.data.branch);
+      loadVersions(branchId);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      message.error(error.response?.data?.error || '切换失败');
     }
   };
 

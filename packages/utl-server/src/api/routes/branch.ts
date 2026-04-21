@@ -149,12 +149,28 @@ router.post('/:id/checkout', authMiddleware, async (req: Request, res: Response)
       data: { currentBranchId: id },
     });
 
-    const version = await prisma.version.findUnique({
-      where: { id: branch.headVersionId },
-    });
+    let snapshot = { nodes: [], relations: [] };
+    
+    if (branch.headVersionId) {
+      const version = await prisma.version.findUnique({
+        where: { id: branch.headVersionId },
+      });
+      if (version?.snapshot) {
+        snapshot = version.snapshot as { nodes: any[]; relations: any[] };
+      }
+    } else {
+      const latestVersion = await prisma.version.findFirst({
+        where: { branchId: id },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (latestVersion?.snapshot) {
+        snapshot = latestVersion.snapshot as { nodes: any[]; relations: any[] };
+      }
+    }
 
-    res.json({ branch, snapshot: version?.snapshot });
+    res.json({ branch, snapshot });
   } catch (error) {
+    console.error('Checkout error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
