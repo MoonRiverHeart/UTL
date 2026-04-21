@@ -12,9 +12,10 @@ model User {
   username      String    @unique
   passwordHash  String
   email         String?
+  role          String    @default("user")  // user, admin
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  
+   
   workspaces        Workspace[]
   collaborations    Collaborator[]
   branches          Branch[]
@@ -28,10 +29,10 @@ model Workspace {
   id        String   @id @default(uuid())
   name      String
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id])
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+   
   mindmaps       Mindmap[]
   collaborators  Collaborator[]
 }
@@ -39,12 +40,12 @@ model Workspace {
 model Collaborator {
   id          String   @id @default(uuid())
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role        String   @default("viewer")
   joinedAt    DateTime @default(now())
-  
+   
   @@unique([workspaceId, userId])
 }
 
@@ -52,13 +53,13 @@ model Mindmap {
   id              String   @id @default(uuid())
   name            String
   workspaceId     String
-  workspace       Workspace @relation(fields: [workspaceId], references: [id])
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   rootNodeId      String?
   utlSource       String?
   currentBranchId String   @default("main")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  
+   
   nodes        Node[]
   branches     Branch[]
   relations    Relation[]    @relation("MindmapRelations")
@@ -68,13 +69,13 @@ model Mindmap {
 model Branch {
   id             String   @id @default(uuid())
   mindmapId      String
-  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id])
+  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
   name           String
   description    String?
   parentBranchId String?
   parentBranch   Branch?  @relation("BranchHierarchy", fields: [parentBranchId], references: [id])
   childBranches  Branch[] @relation("BranchHierarchy")
-  headVersionId  String
+  headVersionId  String?
   authorId       String
   author         User     @relation(fields: [authorId], references: [id])
   status         String   @default("active")
@@ -82,11 +83,11 @@ model Branch {
   mergedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+   
   versions      Version[]
   mergeRequests MergeRequest[] @relation("SourceBranch")
   targetMRs     MergeRequest[] @relation("TargetBranch")
-  
+   
   @@unique([mindmapId, name])
 }
 
@@ -94,7 +95,7 @@ model Version {
   id              String   @id @default(uuid())
   mindmapId       String
   branchId        String
-  branch          Branch   @relation(fields: [branchId], references: [id])
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   versionNumber   String
   message         String
   authorId        String
@@ -106,18 +107,18 @@ model Version {
   diff            Json?
   createdAt       DateTime @default(now())
   tags            String[]
-  
+   
   @@unique([branchId, versionNumber])
 }
 
 model MergeRequest {
   id             String   @id @default(uuid())
   mindmapId      String
-  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id])
+  mindmap        Mindmap  @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
   sourceBranchId String
-  sourceBranch   Branch   @relation("SourceBranch", fields: [sourceBranchId], references: [id])
+  sourceBranch   Branch   @relation("SourceBranch", fields: [sourceBranchId], references: [id], onDelete: Cascade)
   targetBranchId String
-  targetBranch   Branch   @relation("TargetBranch", fields: [targetBranchId], references: [id])
+  targetBranch   Branch   @relation("TargetBranch", fields: [targetBranchId], references: [id], onDelete: Cascade)
   title          String
   description    String?
   authorId       String
@@ -129,14 +130,14 @@ model MergeRequest {
   mergedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+   
   conflicts MergeConflict[]
 }
 
 model MergeConflict {
   id             String   @id @default(uuid())
   mergeRequestId String
-  mergeRequest   MergeRequest @relation(fields: [mergeRequestId], references: [id])
+  mergeRequest   MergeRequest @relation(fields: [mergeRequestId], references: [id], onDelete: Cascade)
   nodeId         String
   sourceVersion  Json
   targetVersion  Json
@@ -152,7 +153,7 @@ model Node {
   description String?
   workspaceId String
   mindmapId   String
-  mindmap     Mindmap  @relation(fields: [mindmapId], references: [id])
+  mindmap     Mindmap  @relation(fields: [mindmapId], references: [id], onDelete: Cascade)
   parentId    String?
   parent      Node?    @relation("NodeHierarchy", fields: [parentId], references: [id])
   children    Node[]   @relation("NodeHierarchy")
@@ -162,7 +163,7 @@ model Node {
   branchId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+   
   relationsAsSource Relation[] @relation("RelationSource")
   relationsAsTarget Relation[] @relation("RelationTarget")
   testResults       TestResult[]
@@ -172,11 +173,11 @@ model Node {
 model Relation {
   id        String   @id @default(uuid())
   mindmapId String
-  mindmap   Mindmap  @relation("MindmapRelations", fields: [mindmapId], references: [id])
+  mindmap   Mindmap  @relation("MindmapRelations", fields: [mindmapId], references: [id], onDelete: Cascade)
   sourceId  String
-  source    Node     @relation("RelationSource", fields: [sourceId], references: [id])
+  source    Node     @relation("RelationSource", fields: [sourceId], references: [id], onDelete: Cascade)
   targetId  String
-  target    Node     @relation("RelationTarget", fields: [targetId], references: [id])
+  target    Node     @relation("RelationTarget", fields: [targetId], references: [id], onDelete: Cascade)
   type      String
   metadata  Json?
   createdAt DateTime @default(now())

@@ -44,5 +44,8 @@
   },
   "files": [
     "dist"
-  ]
+  ],
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  }
 }

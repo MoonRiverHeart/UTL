@@ -1,8 +1,8 @@
 import { Drawer, Form, Input, Select, Space, Button, Tag, Divider, Typography, Collapse, Alert } from 'antd';
 import { DeleteOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
-import { useEditorStore } from '../../../stores/editorStore';
-import api from '../../../services/api';
+import { useEditorStore } from '../../stores/editorStore';
+import api from '../../services/api';
 import { message } from 'antd';
 
 const { Text, Title } = Typography;

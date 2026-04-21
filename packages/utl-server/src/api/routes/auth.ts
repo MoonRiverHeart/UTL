@@ -6,6 +6,43 @@ import prisma from '../../db/client';
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'utl-secret-key';
 
+router.post('/register', async (req: Request, res: Response) => {
+  try {
+    const { username, password, email } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { username } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        username,
+        passwordHash,
+        email,
+        role: 'user',
+      },
+    });
+
+    const token = jwt.sign({ userId: user.id, username: user.username, role: user.role }, JWT_SECRET, {
+      expiresIn: '24h',
+    });
+
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
@@ -25,11 +62,11 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id, username: user.username, role: user.role }, JWT_SECRET, {
       expiresIn: '24h',
     });
 
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -51,7 +88,7 @@ router.get('/me', async (req: Request, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, username: true, email: true, createdAt: true },
+      select: { id: true, username: true, email: true, role: true, createdAt: true },
     });
 
     if (!user) {

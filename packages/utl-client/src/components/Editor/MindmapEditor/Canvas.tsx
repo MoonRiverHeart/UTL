@@ -4,6 +4,7 @@ import { Button, Input, Drawer, Form, Space, Tag, message, Popconfirm, Select, D
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { useEditorStore } from '../../../stores/editorStore';
+import { useSocketStore } from '../../../stores/socketStore';
 import api from '../../../services/api';
 
 const NODE_TYPES = [
@@ -59,6 +60,7 @@ export default function BlueprintEditor() {
   const location = useLocation();
   const { currentMindmap } = useWorkspaceStore();
   const { nodes, setNodes, relations, setRelations, selectedNodes, selectNode, clearSelection } = useEditorStore();
+  const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, socket, onlineUsers } = useSocketStore();
   
   const canvasRef = useRef<HTMLDivElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -108,6 +110,57 @@ export default function BlueprintEditor() {
     clearSelection();
   }, [loadData, clearSelection]);
 
+  useEffect(() => {
+    if (mindmapId) {
+      connect(mindmapId);
+    }
+    return () => {
+      disconnect();
+    };
+  }, [mindmapId, connect, disconnect]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('node_updated', (data: { nodeId: string; changes: Record<string, unknown> }) => {
+      setNodes(nodes.map(n => n.id === data.nodeId ? { ...n, ...data.changes } : n));
+    });
+
+    socket.on('node_created', (data: { node: NodeData }) => {
+      const newNode = {
+        ...data.node,
+        x: (data.node.position as any)?.x ?? data.node.x ?? 100,
+        y: (data.node.position as any)?.y ?? data.node.y ?? 100,
+      };
+      if (!nodes.find(n => n.id === newNode.id)) {
+        setNodes([...nodes, newNode]);
+      }
+    });
+
+    socket.on('node_deleted', (data: { nodeId: string }) => {
+      setNodes(nodes.filter(n => n.id !== data.nodeId));
+      setRelations(relations.filter(r => r.sourceId !== data.nodeId && r.targetId !== data.nodeId));
+    });
+
+    socket.on('relation_created', (data: { relation: { id: string; sourceId: string; targetId: string; type: string } }) => {
+      if (!relations.find(r => r.id === data.relation.id)) {
+        setRelations([...relations, data.relation]);
+      }
+    });
+
+    socket.on('relation_deleted', (data: { relationId: string }) => {
+      setRelations(relations.filter(r => r.id !== data.relationId));
+    });
+
+    return () => {
+      socket.off('node_updated');
+      socket.off('node_created');
+      socket.off('node_deleted');
+      socket.off('relation_created');
+      socket.off('relation_deleted');
+    };
+  }, [socket, nodes, relations, setNodes, setRelations]);
+
   const getNodeColor = (type: string) => NODE_TYPES.find(t => t.value === type)?.color || '#666';
   const getNodeLabel = (type: string) => NODE_TYPES.find(t => t.value === type)?.label || type;
 
@@ -156,7 +209,8 @@ export default function BlueprintEditor() {
       const node = nodes.find(n => n.id === draggedNode);
       if (node) {
         try {
-          await api.put(`/nodes/${draggedNode}`, { x: node.x, y: node.y });
+          await api.put(`/nodes/${draggedNode}`, { position: { x: node.x, y: node.y } });
+          emitNodeUpdate(draggedNode, { x: node.x, y: node.y });
         } catch (error) {
           console.error('Failed to save position:', error);
         }
@@ -177,14 +231,15 @@ export default function BlueprintEditor() {
         
         if (targetNode && mindmapId) {
           try {
-            await api.post('/relations', {
+            const response = await api.post('/relations', {
               mindmapId,
               sourceId: connectionDraft.sourceId,
               targetId: targetNode.id,
               type: 'contains',
             });
+            setRelations([...relations, response.data]);
+            emitRelationCreate(response.data);
             message.success('连接已创建（包含关系）');
-            loadData();
           } catch (error) {
             message.error('创建连接失败');
           }
@@ -239,19 +294,20 @@ export default function BlueprintEditor() {
     const y = Math.max(50, (rect?.height || 300) / 2 - 30 + Math.random() * 100);
     
     try {
-      await api.post(`/nodes/mindmap/${mindmapId}`, {
+      const response = await api.post(`/nodes/mindmap/${mindmapId}`, {
         type,
         name: `新${NODE_TYPES.find(t => t.value === type)?.label || type}`,
         description: '',
         workspaceId: currentMindmap?.workspaceId || '',
-        x,
-        y,
+        position: { x, y },
         metadata: {},
         versionId: 'v1',
         branchId: 'main',
       });
+      const newNode = { ...response.data, x, y };
+      setNodes([...nodes, newNode]);
+      emitNodeCreate(newNode);
       message.success('节点已创建');
-      loadData();
     } catch (error) {
       message.error('创建失败');
     }
@@ -275,8 +331,9 @@ export default function BlueprintEditor() {
     }
     try {
       await api.put(`/nodes/${quickEditNodeId}`, { name: quickEditValue.trim() });
+      setNodes(nodes.map(n => n.id === quickEditNodeId ? { ...n, name: quickEditValue.trim() } : n));
+      emitNodeUpdate(quickEditNodeId, { name: quickEditValue.trim() });
       message.success('节点名称已更新');
-      loadData();
     } catch (error) {
       message.error('更新失败');
     } finally {
@@ -326,9 +383,11 @@ export default function BlueprintEditor() {
     try {
       for (const nodeId of selectedNodes) {
         await api.delete(`/nodes/${nodeId}`);
+        emitNodeDelete(nodeId);
       }
+      setNodes(nodes.filter(n => !selectedNodes.includes(n.id)));
+      setRelations(relations.filter(r => !selectedNodes.includes(r.sourceId) && !selectedNodes.includes(r.targetId)));
       message.success('节点已删除');
-      loadData();
     } catch (error) {
       message.error('删除失败');
     }
@@ -340,24 +399,27 @@ export default function BlueprintEditor() {
       
       if (editingNode?.id) {
         await api.put(`/nodes/${editingNode.id}`, { name: values.name, description: values.description });
+        setNodes(nodes.map(n => n.id === editingNode.id ? { ...n, name: values.name, description: values.description } : n));
+        emitNodeUpdate(editingNode.id, { name: values.name, description: values.description });
         message.success('节点已更新');
       } else {
-        await api.post(`/nodes/mindmap/${mindmapId}`, {
+        const response = await api.post(`/nodes/mindmap/${mindmapId}`, {
           type: values.type,
           name: values.name,
           description: values.description,
           workspaceId: currentMindmap?.workspaceId || '',
-          x: editingNode?.x || 100,
-          y: editingNode?.y || 100,
+          position: { x: editingNode?.x || 100, y: editingNode?.y || 100 },
           metadata: {},
           versionId: 'v1',
           branchId: 'main',
         });
+        const newNode = { ...response.data, x: editingNode?.x || 100, y: editingNode?.y || 100 };
+        setNodes([...nodes, newNode]);
+        emitNodeCreate(newNode);
         message.success('节点已创建');
       }
       
       setDrawerOpen(false);
-      loadData();
     } catch (error) {
       message.error('保存失败');
     }
@@ -375,9 +437,11 @@ export default function BlueprintEditor() {
       const values = await relationForm.validateFields();
       if (editingRelation) {
         await api.put(`/relations/${editingRelation.id}`, { type: values.type });
+        const updatedRelation = { ...editingRelation, type: values.type };
+        setRelations(relations.map(r => r.id === editingRelation.id ? updatedRelation : r));
+        emitNodeUpdate(editingRelation.id, { type: values.type });
         message.success('关系类型已更新');
         setRelationDrawerOpen(false);
-        loadData();
       }
     } catch (error) {
       message.error('更新失败');
@@ -387,8 +451,9 @@ export default function BlueprintEditor() {
   const handleDeleteRelation = async (relationId: string) => {
     try {
       await api.delete(`/relations/${relationId}`);
+      setRelations(relations.filter(r => r.id !== relationId));
+      emitRelationDelete(relationId);
       message.success('连接已删除');
-      loadData();
     } catch (error) {
       message.error('删除失败');
     }
@@ -554,7 +619,12 @@ export default function BlueprintEditor() {
                   onClick={(e) => handleNodeClick(e, node.id)}
                 >
                   <div style={{ padding: '10px 14px', cursor: hasDragged ? 'grab' : 'text' }}>
-                    <Tag color={color} style={{ marginBottom: 6, borderRadius: 4, fontSize: 11 }}>{getNodeLabel(node.type)}</Tag>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Tag color={color} style={{ borderRadius: 4, fontSize: 11, margin: 0 }}>{getNodeLabel(node.type)}</Tag>
+                      {node.description && !isQuickEditing && (
+                        <span style={{ fontSize: 11, color: '#888', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.description}</span>
+                      )}
+                    </div>
                     {isQuickEditing ? (
                       <Input
                         size="small"
@@ -568,9 +638,6 @@ export default function BlueprintEditor() {
                       />
                     ) : (
                       <div style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>{node.name}</div>
-                    )}
-                    {node.description && !isQuickEditing && (
-                      <div style={{ fontSize: 12, color: '#888', marginTop: 4, lineHeight: 1.4 }}>{node.description}</div>
                     )}
                   </div>
                   <div 

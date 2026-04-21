@@ -1,9 +1,8 @@
 import { Drawer, List, Avatar, Tag, Space, Input, Button, Typography, Badge, Divider, Empty } from 'antd';
-import { UserOutlined, SendOutlined, CrownOutlined } from '@ant-design/icons';
+import { UserOutlined, SendOutlined } from '@ant-design/icons';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
-import io from 'socket.io-client';
+import { useSocketStore } from '../../stores/socketStore';
 
 const { Text, Title } = Typography;
 
@@ -30,100 +29,47 @@ interface CollaborationPanelProps {
   onClose: () => void;
 }
 
-const USER_COLORS = [
-  '#1890ff', '#52c41a', '#faad14', '#722ed1', '#eb2f96', 
-  '#13c2c2', '#fa8c16', '#2f54eb', '#f5222d'
-];
-
 export default function CollaborationPanel({ open, onClose }: CollaborationPanelProps) {
   const params = useParams();
-  const { user } = useAuthStore();
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { socket, connected, onlineUsers, myColor, connect, disconnect, sendChatMessage } = useSocketStore();
+  const [messages, setMessages] = useState<{ id: string; userId: string; username: string; content: string; timestamp: Date }[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [socket, setSocket] = useState<ReturnType<typeof io> | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [myColor, setMyColor] = useState('#1890ff');
 
   const mindmapId = params.mindmapId;
 
   useEffect(() => {
-    if (open && mindmapId && user) {
-      const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
-      const newSocket = io(socketUrl, {
-        auth: { userId: user.id, username: user.username },
-        transports: ['websocket'],
-      });
-
-      newSocket.on('connect', () => {
-        setConnected(true);
-        newSocket.emit('join_mindmap', { mindmapId, userId: user.id, username: user.username });
-        
-        const colorIndex = Math.floor(Math.random() * USER_COLORS.length);
-        setMyColor(USER_COLORS[colorIndex]);
-      });
-
-      newSocket.on('disconnect', () => {
-        setConnected(false);
-      });
-
-      newSocket.on('user_joined', (data: OnlineUser) => {
-        setOnlineUsers(prev => {
-          if (prev.find(u => u.userId === data.userId)) return prev;
-          return [...prev, data];
-        });
-        
-        setMessages(prev => [...prev, {
-          id: `sys-${Date.now()}`,
-          userId: 'system',
-          username: '系统',
-          content: `${data.username} 加入了协作`,
-          timestamp: new Date(),
-        }]);
-      });
-
-      newSocket.on('user_left', (data: { userId: string }) => {
-        setOnlineUsers(prev => prev.filter(u => u.userId !== data.userId));
-      });
-
-      newSocket.on('users_list', (users: OnlineUser[]) => {
-        setOnlineUsers(users);
-      });
-
-      newSocket.on('chat_message', (msg: ChatMessage) => {
-        setMessages(prev => [...prev, msg]);
-      });
-
-      newSocket.on('user_cursor', (data: { userId: string; cursor: { x: number; y: number } }) => {
-        setOnlineUsers(prev => prev.map(u => 
-          u.userId === data.userId ? { ...u, cursor: data.cursor } : u
-        ));
-      });
-
-      setSocket(newSocket);
-
-      return () => {
-        newSocket.emit('leave_mindmap', { mindmapId });
-        newSocket.disconnect();
-      };
+    if (open && mindmapId) {
+      connect(mindmapId);
     }
-  }, [open, mindmapId, user]);
+    return () => {
+      if (!open) {
+        disconnect();
+      }
+    };
+  }, [open, mindmapId, connect, disconnect]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('chat_message', (msg: { id: string; userId: string; username: string; content: string; timestamp: Date }) => {
+      setMessages(prev => [...prev, msg]);
+    });
+
+    socket.on('chat_history', (history: { id: string; userId: string; username: string; content: string; timestamp: Date }[]) => {
+      setMessages(history);
+    });
+
+    return () => {
+      socket.off('chat_message');
+      socket.off('chat_history');
+    };
+  }, [socket]);
 
   const sendMessage = useCallback(() => {
-    if (!inputMessage.trim() || !socket) return;
-    
-    socket.emit('chat_message', {
-      mindmapId,
-      userId: user?.id,
-      username: user?.username,
-      content: inputMessage.trim(),
-    });
-    
+    if (!inputMessage.trim() || !connected) return;
+    sendChatMessage(inputMessage.trim());
     setInputMessage('');
-  }, [inputMessage, socket, mindmapId, user]);
-
-  const currentUser = onlineUsers.find(u => u.userId === user?.id);
-  const otherUsers = onlineUsers.filter(u => u.userId !== user?.id);
+  }, [inputMessage, connected, sendChatMessage]);
 
   return (
     <Drawer

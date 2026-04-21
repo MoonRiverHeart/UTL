@@ -40,36 +40,39 @@ router.post('/mindmap/:mindmapId', authMiddleware, async (req: Request, res: Res
       return res.status(404).json({ error: 'Mindmap not found' });
     }
 
-    const initialVersion = await prisma.version.create({
-      data: {
-        mindmapId,
-        branchId: 'temp',
-        versionNumber: 'v0',
-        message: 'Initial version',
-        authorId: userId,
-        snapshot: { nodes: [], relations: [] },
-      },
-    });
-
     const branch = await prisma.branch.create({
       data: {
         mindmapId,
         name,
         description,
         parentBranchId: parentBranchId || null,
-        headVersionId: initialVersion.id,
         authorId: userId,
         status: 'active',
+        versions: {
+          create: {
+            mindmapId,
+            versionNumber: 'v0',
+            message: 'Initial version',
+            authorId: userId,
+            snapshot: { nodes: [], relations: [] },
+          },
+        },
       },
+      include: { versions: true },
     });
 
-    await prisma.version.update({
-      where: { id: initialVersion.id },
-      data: { branchId: branch.id },
-    });
+    const initialVersion = branch.versions[0];
+    if (initialVersion) {
+      await prisma.branch.update({
+        where: { id: branch.id },
+        data: { headVersionId: initialVersion.id },
+      });
+      branch.headVersionId = initialVersion.id;
+    }
 
     res.json(branch);
   } catch (error) {
+    console.error('Branch creation error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

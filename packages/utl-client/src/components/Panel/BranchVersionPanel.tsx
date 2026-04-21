@@ -1,9 +1,10 @@
-import { Drawer, List, Button, Space, Tag, Typography, Input, Modal, Collapse, Timeline, Spin, Empty, Badge } from 'antd';
-import { PlusOutlined, GitBranchOutlined, SwapOutlined, MergeOutlined, HistoryOutlined, DiffOutlined, RollbackOutlined } from '@ant-design/icons';
+import { Drawer, List, Button, Space, Tag, Typography, Input, Modal, Collapse, Timeline, Spin, Empty, Badge, Divider } from 'antd';
+import { PlusOutlined, ApartmentOutlined, SwapOutlined, MergeOutlined, HistoryOutlined, DiffOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
 import { message } from 'antd';
+import { useEditorStore } from '../../stores/editorStore';
 
 const { Text, Title } = Typography;
 
@@ -32,6 +33,7 @@ interface BranchVersionPanelProps {
 export default function BranchVersionPanel({ open, onClose }: BranchVersionPanelProps) {
   const params = useParams();
   const mindmapId = params.mindmapId;
+  const { nodes, relations } = useEditorStore();
 
   const [branches, setBranches] = useState<Branch[]>([]);
   const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
@@ -44,6 +46,8 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
   const [diffData, setDiffData] = useState<any>(null);
   const [version1Id, setVersion1Id] = useState('');
   const [version2Id, setVersion2Id] = useState('');
+  const [saveVersionModalOpen, setSaveVersionModalOpen] = useState(false);
+  const [versionMessage, setVersionMessage] = useState('');
 
   useEffect(() => {
     if (open && mindmapId) {
@@ -137,7 +141,16 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
           const res = await api.post(`/versions/${versionId}/restore`);
           message.success('已恢复版本');
           if (res.data.snapshot) {
-            message.info('节点数据已更新');
+            const { nodes: snapshotNodes, relations: snapshotRelations } = res.data.snapshot as { nodes: any[]; relations: any[] };
+            const { setNodes, setRelations } = useEditorStore.getState();
+            const restoredNodes = snapshotNodes.map(n => ({
+              ...n,
+              x: n.position?.x ?? n.x ?? 100,
+              y: n.position?.y ?? n.y ?? 100,
+            }));
+            setNodes(restoredNodes);
+            setRelations(snapshotRelations);
+            message.info('节点数据已更新，请刷新页面查看完整变化');
           }
         } catch {
           message.error('恢复失败');
@@ -161,6 +174,43 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
     }
   };
 
+  const handleSaveVersion = async () => {
+    if (!currentBranch) {
+      message.warning('请先选择分支');
+      return;
+    }
+
+    try {
+      const snapshot = {
+        nodes: nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          name: n.name,
+          description: n.description,
+          position: { x: n.x, y: n.y },
+          metadata: n.metadata,
+        })),
+        relations: relations.map(r => ({
+          id: r.id,
+          sourceId: r.sourceId,
+          targetId: r.targetId,
+          type: r.type,
+        })),
+      };
+
+      await api.post(`/versions/branch/${currentBranch.id}`, {
+        message: versionMessage || '保存变更',
+        snapshot,
+      });
+      message.success('版本已保存');
+      setSaveVersionModalOpen(false);
+      setVersionMessage('');
+      loadVersions(currentBranch.id);
+    } catch {
+      message.error('保存失败');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'green';
@@ -172,7 +222,7 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
 
   return (
     <Drawer
-      title={<Space><GitBranchOutlined /> 分支与版本</Space>}
+      title={<Space><ApartmentOutlined /> 分支与版本</Space>}
       placement="right"
       width={450}
       open={open}
@@ -184,16 +234,33 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
       ) : (
         <>
           <div style={{ marginBottom: 16 }}>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
-              创建分支
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                创建分支
+              </Button>
+              <Button icon={<SaveOutlined />} onClick={() => setSaveVersionModalOpen(true)} disabled={!currentBranch}>
+                保存版本快照
+              </Button>
+            </Space>
           </div>
+
+          {currentBranch && (
+            <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 8 }}>
+              <Space>
+                <Text strong>当前分支:</Text>
+                <Tag color="blue">{currentBranch.name}</Tag>
+                <Text type="secondary">节点: {nodes.length} | 连接: {relations.length}</Text>
+              </Space>
+            </div>
+          )}
+
+          <Divider style={{ margin: '12px 0' }} />
 
           <Collapse
             items={[
               {
                 key: 'branches',
-                label: <Space><GitBranchOutlined /> 分支列表 ({branches.length})</Space>,
+                label: <Space><ApartmentOutlined /> 分支列表 ({branches.length})</Space>,
                 children: (
                   <List
                     dataSource={branches}
@@ -245,6 +312,25 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
             ]}
             defaultActiveKey={['branches', 'versions']}
           />
+
+          <Modal
+            title="保存版本快照"
+            open={saveVersionModalOpen}
+            onOk={handleSaveVersion}
+            onCancel={() => setSaveVersionModalOpen(false)}
+            okText="保存"
+          >
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Text type="secondary">将当前脑图状态保存为新版本</Text>
+              <Text>节点数: {nodes.length} | 连接数: {relations.length}</Text>
+              <Input.TextArea 
+                placeholder="版本说明（可选）" 
+                value={versionMessage} 
+                onChange={(e) => setVersionMessage(e.target.value)} 
+                rows={3} 
+              />
+            </Space>
+          </Modal>
 
           <Modal
             title="创建新分支"

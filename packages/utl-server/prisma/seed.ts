@@ -2,19 +2,34 @@ import bcrypt from 'bcryptjs';
 import prisma from '../src/db/client';
 
 async function main() {
-  const passwordHash = await bcrypt.hash('test123', 10);
+  const testPasswordHash = await bcrypt.hash('test123', 10);
+  const adminPasswordHash = await bcrypt.hash('admin123', 10);
 
-  const user = await prisma.user.upsert({
+  const testUser = await prisma.user.upsert({
     where: { username: 'test' },
     update: {},
     create: {
       username: 'test',
-      passwordHash,
+      passwordHash: testPasswordHash,
       email: 'test@example.com',
+      role: 'user',
     },
   });
 
-  console.log('Created test user:', { username: 'test', password: 'test123' });
+  console.log('Created test user:', { username: 'test', password: 'test123', role: 'user' });
+
+  const adminUser = await prisma.user.upsert({
+    where: { username: 'admin' },
+    update: {},
+    create: {
+      username: 'admin',
+      passwordHash: adminPasswordHash,
+      email: 'admin@example.com',
+      role: 'admin',
+    },
+  });
+
+  console.log('Created admin user:', { username: 'admin', password: 'admin123', role: 'admin' });
 
   const workspace = await prisma.workspace.upsert({
     where: { id: 'default-workspace' },
@@ -22,7 +37,7 @@ async function main() {
     create: {
       id: 'default-workspace',
       name: '默认工作区',
-      ownerId: user.id,
+      ownerId: testUser.id,
     },
   });
 
