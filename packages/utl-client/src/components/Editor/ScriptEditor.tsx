@@ -2,14 +2,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Button, Space, Tag, message, Popconfirm } from 'antd';
 import { SaveOutlined, SyncOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
-import Editor, { loader } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import Editor from '@monaco-editor/react';
 import api from '../../services/api';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { useEditorStore } from '../../stores/editorStore';
-
-// 配置使用本地Monaco，避免CDN跟踪警告
-loader.config({ monaco });
 
 const UTL_LANGUAGE = {
   defaultToken: '',
