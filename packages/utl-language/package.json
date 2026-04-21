@@ -1,0 +1,25 @@
+{
+  "name": "@utl/language",
+  "version": "0.1.0",
+  "description": "UTL语言引擎 - 词法分析、语法分析、继承解析、双向同步",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "ts-jest": "^29.1.0"
+  },
+  "files": [
+    "dist"
+  ]
+}
