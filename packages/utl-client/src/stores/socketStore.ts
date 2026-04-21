@@ -50,7 +50,9 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     }
 
     if (existingSocket) {
+      existingSocket.removeAllListeners();
       existingSocket.disconnect();
+      set({ socket: null, connected: false });
     }
 
     const user = useAuthStore.getState().user;
@@ -59,7 +61,10 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     const socketUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
     const newSocket = io(socketUrl, {
       auth: { userId: user.id, username: user.username },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     const colorIndex = Math.floor(Math.random() * USER_COLORS.length);
@@ -71,6 +76,11 @@ export const useSocketStore = create<SocketState>((set, get) => ({
     });
 
     newSocket.on('disconnect', () => {
+      set({ connected: false });
+    });
+
+    newSocket.on('connect_error', (error: Error) => {
+      console.warn('WebSocket connection error:', error.message);
       set({ connected: false });
     });
 
