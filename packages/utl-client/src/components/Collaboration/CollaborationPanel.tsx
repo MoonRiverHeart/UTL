@@ -3,6 +3,7 @@ import { UserOutlined, SendOutlined } from '@ant-design/icons';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSocketStore } from '../../stores/socketStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const { Text, Title } = Typography;
 
@@ -32,6 +33,7 @@ interface CollaborationPanelProps {
 export default function CollaborationPanel({ open, onClose }: CollaborationPanelProps) {
   const params = useParams();
   const { socket, connected, onlineUsers, myColor, connect, disconnect, sendChatMessage } = useSocketStore();
+  const { user } = useAuthStore();
   const [messages, setMessages] = useState<{ id: string; userId: string; username: string; content: string; timestamp: Date }[]>([]);
   const [inputMessage, setInputMessage] = useState('');
 
