@@ -184,7 +184,6 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
         try {
           await api.post(`/branches/${branchId}/merge`, {
             targetBranchId: currentBranch.id,
-            userId: 'system',
           });
           message.success('合并成功');
           loadBranches();

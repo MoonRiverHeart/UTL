@@ -178,7 +178,8 @@ router.post('/:id/checkout', authMiddleware, async (req: Request, res: Response)
 router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { targetBranchId, userId } = req.body;
+    const { targetBranchId } = req.body;
+    const userId = (req as any).userId;
 
     if (!targetBranchId) {
       return res.status(400).json({ error: 'Target branch ID required' });
@@ -218,7 +219,7 @@ router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) =>
         branchId: targetBranchId,
         versionNumber: `v${Date.now()}`,
         message: `Merge from ${sourceBranch.name}`,
-        authorId: userId || 'system',
+        authorId: userId,
         snapshot,
       },
     });
