@@ -481,10 +481,16 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
       const target = nodes.find(n => n.id === rel.targetId);
       if (!source || !target) return;
       
-      const sx = source.x + NODE_WIDTH;
-      const sy = source.y + NODE_HEIGHT / 2;
-      const tx = target.x;
-      const ty = target.y + NODE_HEIGHT / 2;
+      // 安全检查：确保位置有效
+      const sourceX = Number.isFinite(source.x) ? source.x : 100;
+      const sourceY = Number.isFinite(source.y) ? source.y : 100;
+      const targetX = Number.isFinite(target.x) ? target.x : 100;
+      const targetY = Number.isFinite(target.y) ? target.y : 100;
+      
+      const sx = sourceX + NODE_WIDTH;
+      const sy = sourceY + NODE_HEIGHT / 2;
+      const tx = targetX;
+      const ty = targetY + NODE_HEIGHT / 2;
       
       const midX = (sx + tx) / 2;
       const midY = (sy + ty) / 2;
@@ -611,13 +617,17 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
               const color = getNodeColor(node.type);
               const isQuickEditing = quickEditNodeId === node.id;
               
+              // 安全检查：确保位置有效
+              const nodeX = Number.isFinite(node.x) ? node.x : 100;
+              const nodeY = Number.isFinite(node.y) ? node.y : 100;
+              
               return (
                 <div 
                   key={node.id} 
                   style={{
                     position: 'absolute', 
-                    left: node.x, 
-                    top: node.y, 
+                    left: nodeX, 
+                    top: nodeY, 
                     width: NODE_WIDTH, 
                     minHeight: NODE_HEIGHT,
                     background: isSelected ? '#e6f7ff' : '#fff',

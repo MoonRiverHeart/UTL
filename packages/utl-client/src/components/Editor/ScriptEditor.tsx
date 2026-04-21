@@ -336,10 +336,21 @@ export default function ScriptEditor() {
       const nodesRes = await api.get(`/nodes/mindmap/${mindmapId}`);
       const relationsRes = await api.get(`/relations/mindmap/${mindmapId}`);
       
-      setNodes(nodesRes.data);
+      // 转换节点数据，确保x/y有效
+      const nodesData = nodesRes.data.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        name: n.name,
+        description: n.description || '',
+        x: n.x ?? n.position?.x ?? 100,
+        y: n.y ?? n.position?.y ?? 100,
+        metadata: n.metadata || {},
+      }));
+      
+      setNodes(nodesData);
       setRelations(relationsRes.data);
       
-      const generatedUTL = generateUTL(nodesRes.data, relationsRes.data, mindmapRes.data.name);
+      const generatedUTL = generateUTL(nodesData, relationsRes.data, mindmapRes.data.name);
       setContent(generatedUTL);
       lastSyncedContent.current = generatedUTL;
     } catch {
