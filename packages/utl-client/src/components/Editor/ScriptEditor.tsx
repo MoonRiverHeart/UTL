@@ -47,23 +47,69 @@ export default function ScriptEditor() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const lastSyncedContent = useRef<string>('');
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const isCodeDriven = useRef(false);
+  const pendingSyncContent = useRef<string>('');
+  const needsSync = useRef(false);
 
   const mindmapId = params.mindmapId;
   const isSplitMode = location.pathname.includes('/split');
+  const initialContentLoaded = useRef(false);
 
   const generateUTL = (nodesData: typeof nodes, relationsData: typeof relations, name: string) => {
     let utl = `// UTL 测试脚本 - ${name}\n// ${new Date().toLocaleString()}\n\n`;
     
     const scenarios = nodesData.filter(n => n.type === 'scenario');
     const functions = nodesData.filter(n => n.type === 'function');
-    const testCases = nodesData.filter(n => n.type === 'test_case');
+    
+    // 记录已被场景包含的功能，避免重复生成
+    const functionsInScenarios = new Set<string>();
+    
+    // 查找场景包含功能的连线（语义上应该是继承关系）
+    for (const s of scenarios) {
+      const containsFns = relationsData.filter(r => 
+        r.sourceId === s.id && 
+        r.type === 'contains' && 
+        nodesData.find(n => n.id === r.targetId)?.type === 'function'
+      );
+      for (const rel of containsFns) {
+        functionsInScenarios.add(rel.targetId);
+      }
+    }
+    
+    // 查找功能继承场景的连线
+    const functionExtendsScenario = new Map<string, string>();
+    for (const fn of functions) {
+      const ext = relationsData.find(r => r.sourceId === fn.id && r.type === 'extends');
+      if (ext) {
+        const target = nodesData.find(n => n.id === ext.targetId);
+        if (target?.type === 'scenario') {
+          functionExtendsScenario.set(fn.id, target.name);
+        }
+      }
+      // 如果场景包含功能，也当作继承关系
+      const containedByScenario = relationsData.find(r => 
+        r.targetId === fn.id && 
+        r.type === 'contains' && 
+        nodesData.find(n => n.id === r.sourceId)?.type === 'scenario'
+      );
+      if (containedByScenario && !ext) {
+        const scenario = nodesData.find(n => n.id === containedByScenario.sourceId);
+        if (scenario) {
+          functionExtendsScenario.set(fn.id, scenario.name);
+          functionsInScenarios.add(fn.id);
+        }
+      }
+    }
     
     for (const s of scenarios) {
       utl += `场景 "${s.name}" {\n`;
       if (s.description) utl += `  描述 "${s.description}"\n`;
-      const factors = relationsData.filter(r => r.targetId === s.id && r.type === 'contains');
+      
+      // 只生成因子，不生成功能（功能用继承表示）
+      const factors = relationsData.filter(r => r.sourceId === s.id && r.type === 'contains');
       for (const fr of factors) {
-        const f = nodesData.find(n => n.id === fr.sourceId);
+        const f = nodesData.find(n => n.id === fr.targetId);
         if (f?.type === 'action_factor') utl += `  动作因子 "${f.name}"\n`;
         if (f?.type === 'data_factor') utl += `  数据因子 "${f.name}"\n`;
       }
@@ -71,53 +117,52 @@ export default function ScriptEditor() {
     }
     
     for (const fn of functions) {
-      const ext = relationsData.find(r => r.sourceId === fn.id && r.type === 'extends');
-      utl += `功能 "${fn.name}"${ext ? ` 继承 "${nodesData.find(n => n.id === ext.targetId)?.name}"` : ''} {\n`;
+      // 如果功能已被场景包含，但不是继承关系，跳过独立生成
+      if (functionsInScenarios.has(fn.id) && !functionExtendsScenario.has(fn.id)) {
+        continue;
+      }
+      
+      const parentName = functionExtendsScenario.get(fn.id);
+      utl += `功能 "${fn.name}"${parentName ? ` 继承 "${parentName}"` : ''} {\n`;
       if (fn.description) utl += `  描述 "${fn.description}"\n`;
       
-      const tps = relationsData.filter(r => r.targetId === fn.id && r.type === 'contains').map(r => nodesData.find(n => n.id === r.sourceId)).filter(n => n?.type === 'test_point');
-      for (const tp of tps) {
-        utl += `  测试点 "${tp!.name}" {\n`;
-        const tcs = relationsData.filter(r => r.targetId === tp!.id && r.type === 'contains').map(r => nodesData.find(n => n.id === r.sourceId)).filter(n => n?.type === 'test_case');
-        for (const tc of tcs) {
-          utl += `    测试用例 "${tc!.name}" {\n`;
-          const children = relationsData.filter(r => r.targetId === tc!.id && r.type === 'contains').map(r => nodesData.find(n => n.id === r.sourceId));
-          for (const c of children) {
-            if (c?.type === 'precondition') utl += `      预制条件 "${c.name}"\n`;
-            if (c?.type === 'test_step') utl += `      测试步骤 "${c.name}"\n`;
-            if (c?.type === 'expected_result') utl += `      预期结果 "${c.name}"\n`;
+      const children = relationsData.filter(r => r.sourceId === fn.id && r.type === 'contains');
+      for (const cr of children) {
+        const child = nodesData.find(n => n.id === cr.targetId);
+        if (child?.type === 'test_point') {
+          utl += `  测试点 "${child.name}" {\n`;
+          const tpChildren = relationsData.filter(r => r.sourceId === child.id && r.type === 'contains');
+          for (const tcr of tpChildren) {
+            const tc = nodesData.find(n => n.id === tcr.targetId);
+            if (tc?.type === 'test_case') {
+              utl += `    测试用例 "${tc.name}" {\n`;
+              const tcChildren = relationsData.filter(r => r.sourceId === tc.id && r.type === 'contains');
+              for (const ccr of tcChildren) {
+                const c = nodesData.find(n => n.id === ccr.targetId);
+                if (c?.type === 'precondition') utl += `      预制条件 "${c.name}"\n`;
+                if (c?.type === 'test_step') utl += `      测试步骤 "${c.name}"\n`;
+                if (c?.type === 'expected_result') utl += `      预期结果 "${c.name}"\n`;
+              }
+              utl += `    }\n`;
+            }
           }
-          utl += `    }\n`;
+          utl += `  }\n`;
         }
-        utl += `  }\n`;
+        if (child?.type === 'action_factor') utl += `  动作因子 "${child.name}"\n`;
+        if (child?.type === 'data_factor') utl += `  数据因子 "${child.name}"\n`;
       }
       utl += `}\n\n`;
-    }
-    
-    if (!scenarios.length && !functions.length && testCases.length) {
-      utl += `场景 "${name}" {\n`;
-      for (const tc of testCases) {
-        utl += `  功能 "${tc.name}" {\n`;
-        utl += `    测试点 "${tc.name}" {\n`;
-        utl += `      测试用例 "${tc.name}" {\n`;
-        const children = relationsData.filter(r => r.targetId === tc.id && r.type === 'contains').map(r => nodesData.find(n => n.id === r.sourceId));
-        for (const c of children) {
-          if (c?.type === 'precondition') utl += `        预制条件 "${c.name}"\n`;
-          if (c?.type === 'test_step') utl += `        测试步骤 "${c.name}"\n`;
-          if (c?.type === 'expected_result') utl += `        预期结果 "${c.name}"\n`;
-        }
-        utl += `      }\n    }\n  }\n`;
-      }
-      utl += `}\n`;
     }
     
     return utl;
   };
 
   const parseUTLToNodes = (utlContent: string) => {
-    const newNodes: { type: string; name: string; description?: string }[] = [];
+    const newNodes: { type: string; name: string; description?: string; x: number; y: number }[] = [];
+    const newRelations: { source: string; target: string; type: string }[] = [];
     const lines = utlContent.split('\n');
-    let parentStack: { type: string; name: string }[] = [];
+    let parentStack: { type: string; name: string; index: number }[] = [];
+    let yPosition = 100;
     
     for (const line of lines) {
       const trimmed = line.trim();
@@ -126,11 +171,22 @@ export default function ScriptEditor() {
         const match = trimmed.match(new RegExp(`^${keyword}\\s+"([^"]+)"`));
         if (match) {
           const name = match[1];
-          const node = { type, name };
+          const index = newNodes.length;
+          const node = { type, name, x: 100 + (parentStack.length * 150), y: yPosition };
+          yPosition += 60;
           
           if (trimmed.includes('{')) {
             newNodes.push(node);
-            parentStack.push(node);
+            parentStack.push({ type, name, index });
+            
+            if (parentStack.length > 1) {
+              const parent = parentStack[parentStack.length - 2];
+              newRelations.push({
+                source: `parsed-${parent.index}`,
+                target: `parsed-${index}`,
+                type: 'contains',
+              });
+            }
           } else if (parentStack.length > 0) {
             newNodes.push(node);
           }
@@ -146,55 +202,126 @@ export default function ScriptEditor() {
       if (descMatch && newNodes.length > 0) {
         newNodes[newNodes.length - 1].description = descMatch[1];
       }
+      
+      const extMatch = trimmed.match(/继承\s+"([^"]+)"/);
+      if (extMatch && newNodes.length > 0 && parentStack.length > 0) {
+        const parentName = extMatch[1];
+        const parentNode = newNodes.find(n => n.name === parentName);
+        if (parentNode) {
+          const childIndex = parentStack[parentStack.length - 1].index;
+          newRelations.push({
+            source: `parsed-${childIndex}`,
+            target: `parsed-${newNodes.indexOf(parentNode)}`,
+            type: 'extends',
+          });
+        }
+      }
     }
     
-    return newNodes;
+    return { nodes: newNodes, relations: newRelations };
   };
 
   const syncToMindmap = async () => {
     if (!mindmapId || !currentMindmap?.workspaceId) return;
     
-    const parsedNodes = parseUTLToNodes(content);
-    if (parsedNodes.length === 0) {
+    const parsed = parseUTLToNodes(content);
+    if (parsed.nodes.length === 0) {
       message.warning('未解析到有效节点');
       return;
     }
     
     setSaving(true);
     try {
-      const existingNodes = await api.get(`/nodes/mindmap/${mindmapId}`);
-      const existingNames = new Map(existingNodes.data.map((n: { name: string; id: string }) => [n.name, n.id]));
+      const existingNodesRes = await api.get(`/nodes/mindmap/${mindmapId}`);
+      const existingNodes = existingNodesRes.data as { id: string; name: string; type: string }[];
+      const existingRelationsRes = await api.get(`/relations/mindmap/${mindmapId}`);
+      const existingRelations = existingRelationsRes.data as { id: string; sourceId: string; targetId: string; type: string }[];
       
+      // 建立节点名称到ID的映射（包括新创建的）
+      const nodeNameToId = new Map<string, string>();
+      existingNodes.forEach(n => nodeNameToId.set(n.name, n.id));
+      
+      // 删除代码中不存在的节点
+      const parsedNames = new Set(parsed.nodes.map(n => n.name));
+      for (const existing of existingNodes) {
+        if (!parsedNames.has(existing.name)) {
+          await api.delete(`/nodes/${existing.id}`);
+        }
+      }
+      
+      // 创建新节点
       let xPos = 100;
       let yPos = 100;
-      
-      for (const parsedNode of parsedNodes) {
-        if (!existingNames.has(parsedNode.name)) {
-          await api.post(`/nodes/mindmap/${mindmapId}`, {
+      for (const parsedNode of parsed.nodes) {
+        if (!nodeNameToId.has(parsedNode.name)) {
+          const response = await api.post(`/nodes/mindmap/${mindmapId}`, {
             type: parsedNode.type,
             name: parsedNode.name,
             description: parsedNode.description || '',
             workspaceId: currentMindmap.workspaceId,
-            x: xPos,
-            y: yPos,
+            position: { x: xPos, y: yPos },
             metadata: {},
-            versionId: 'v1',
-            branchId: 'main',
           });
+          nodeNameToId.set(parsedNode.name, response.data.id);
           xPos += 180;
           if (xPos > 600) { xPos = 100; yPos += 80; }
         } else {
-          const existingId = existingNames.get(parsedNode.name);
-          if (existingId && parsedNode.description) {
-            await api.put(`/nodes/${existingId}`, { description: parsedNode.description });
+          xPos += 180;
+          if (xPos > 600) { xPos = 100; yPos += 80; }
+        }
+      }
+      
+      // 同步关系：删除不存在的关系，创建新关系
+      const parsedRelSet = new Set<string>();
+      for (const rel of parsed.relations) {
+        const sourceId = nodeNameToId.get(rel.source.replace('parsed-', '').split('-').length > 1 ? parsed.nodes[parseInt(rel.source.replace('parsed-', ''))]?.name : '');
+        const targetId = nodeNameToId.get(rel.target.replace('parsed-', '').split('-').length > 1 ? parsed.nodes[parseInt(rel.target.replace('parsed-', ''))]?.name : '');
+        
+        // 从parsed索引获取节点名
+        const sourceIndex = parseInt(rel.source.replace('parsed-', ''));
+        const targetIndex = parseInt(rel.target.replace('parsed-', ''));
+        const sourceName = parsed.nodes[sourceIndex]?.name;
+        const targetName = parsed.nodes[targetIndex]?.name;
+        
+        if (sourceName && targetName) {
+          const actualSourceId = nodeNameToId.get(sourceName);
+          const actualTargetId = nodeNameToId.get(targetName);
+          
+          if (actualSourceId && actualTargetId) {
+            parsedRelSet.add(`${actualSourceId}-${actualTargetId}-${rel.type}`);
+            
+            // 检查关系是否已存在
+            const exists = existingRelations.some(er => 
+              er.sourceId === actualSourceId && 
+              er.targetId === actualTargetId && 
+              er.type === rel.type
+            );
+            
+            if (!exists) {
+              await api.post('/relations', {
+                mindmapId,
+                sourceId: actualSourceId,
+                targetId: actualTargetId,
+                type: rel.type,
+              });
+            }
           }
+        }
+      }
+      
+      // 删除代码中不存在的关系
+      for (const existingRel of existingRelations) {
+        const key = `${existingRel.sourceId}-${existingRel.targetId}-${existingRel.type}`;
+        if (!parsedRelSet.has(key)) {
+          await api.delete(`/relations/${existingRel.id}`);
         }
       }
       
       lastSyncedContent.current = content;
       message.success('已同步到脑图');
       await loadUTL();
-    } catch {
+    } catch (err) {
+      console.error('Sync error:', err);
       message.error('同步失败');
     } finally {
       setSaving(false);
@@ -222,10 +349,31 @@ export default function ScriptEditor() {
     }
   }, [mindmapId, setNodes, setRelations]);
 
-  useEffect(() => { loadUTL(); }, [loadUTL]);
+  useEffect(() => { 
+    loadUTL(); 
+    initialContentLoaded.current = true;
+  }, [loadUTL]);
 
+  // 跟踪内容变化
   useEffect(() => {
-    if (isSplitMode && !loading && nodes.length > 0) {
+    if (!isSplitMode && initialContentLoaded.current && content && content !== lastSyncedContent.current) {
+      needsSync.current = true;
+      pendingSyncContent.current = content;
+    }
+  }, [isSplitMode, content]);
+
+  // 离开时自动同步（警告提示）
+  useEffect(() => {
+    return () => {
+      if (!isSplitMode && needsSync.current) {
+        message.warning('代码有未同步的变更，请手动点击"同步到脑图"');
+      }
+    };
+  }, [isSplitMode]);
+
+  // 分屏模式下：脑图→代码单向同步（显示实时变化）
+  useEffect(() => {
+    if (isSplitMode && !loading && !isCodeDriven.current) {
       const newUTL = generateUTL(nodes, relations, currentMindmap?.name || '脑图');
       if (newUTL !== lastSyncedContent.current) {
         setContent(newUTL);
@@ -233,6 +381,39 @@ export default function ScriptEditor() {
       }
     }
   }, [isSplitMode, loading, nodes, relations, currentMindmap?.name]);
+
+  // 分屏模式下：代码→脑图单向同步（更新本地显示，不保存到数据库）
+  useEffect(() => {
+    if (isSplitMode && !loading && content && content !== lastSyncedContent.current && !isCodeDriven.current) {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      debounceTimer.current = setTimeout(() => {
+        const parsed = parseUTLToNodes(content);
+        if (parsed.nodes.length > 0) {
+          const mappedNodes = parsed.nodes.map((n, i) => ({
+            id: `parsed-${i}`,
+            type: n.type,
+            name: n.name,
+            description: n.description || '',
+            x: 100 + Math.floor(i / 5) * 180,
+            y: 100 + (i % 5) * 80,
+            metadata: {},
+          }));
+          const mappedRelations = parsed.relations.map((r, i) => ({
+            id: `parsed-rel-${i}`,
+            sourceId: r.source,
+            targetId: r.target,
+            type: r.type,
+          }));
+          // 只更新本地显示，不覆盖editorStore
+          // 脑图Canvas会检测parsed-前缀并显示临时节点
+          setNodes(mappedNodes);
+          setRelations(mappedRelations);
+        }
+      }, 500);
+    }
+  }, [isSplitMode, loading, content, setNodes, setRelations]);
 
   const handleSave = async () => {
     if (!mindmapId) return;

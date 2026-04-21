@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Tree, Tag, Empty, Spin, Typography } from 'antd';
-import { FileOutlined, FolderOutlined, AppstoreOutlined } from '@ant-design/icons';
+import { Tree, Tag, Empty, Spin, Typography, Button, Popconfirm, Space } from 'antd';
+import { FileOutlined, FolderOutlined, AppstoreOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEditorStore } from '../../stores/editorStore';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
+import { message } from 'antd';
 
 const { Text } = Typography;
 
@@ -40,9 +41,9 @@ interface TreeNodeData {
 
 export default function NodeTree() {
   const params = useParams();
-  const { selectNode, selectedNodes } = useEditorStore();
-  const [nodes, setNodes] = useState<{ id: string; type: string; name: string; description?: string; x: number; y: number }[]>([]);
-  const [relations, setRelations] = useState<{ id: string; sourceId: string; targetId: string; type: string }[]>([]);
+  const { selectNode, selectedNodes, nodes: editorNodes, relations: editorRelations, setNodes, setRelations } = useEditorStore();
+  const [nodes, setLocalNodes] = useState<{ id: string; type: string; name: string; description?: string; x: number; y: number }[]>([]);
+  const [relations, setLocalRelations] = useState<{ id: string; sourceId: string; targetId: string; type: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const mindmapId = params.mindmapId;
@@ -55,19 +56,43 @@ export default function NodeTree() {
         api.get(`/relations/mindmap/${mindmapId}`)
       ])
         .then(([nodesRes, relationsRes]) => {
+          setLocalNodes(nodesRes.data);
+          setLocalRelations(relationsRes.data);
           setNodes(nodesRes.data);
           setRelations(relationsRes.data);
         })
         .catch(() => {
-          setNodes([]);
-          setRelations([]);
+          setLocalNodes([]);
+          setLocalRelations([]);
         })
         .finally(() => setLoading(false));
     } else {
-      setNodes([]);
-      setRelations([]);
+      setLocalNodes([]);
+      setLocalRelations([]);
     }
-  }, [mindmapId]);
+  }, [mindmapId, setNodes, setRelations]);
+
+  useEffect(() => {
+    if (editorNodes.length > 0 && !editorNodes[0].id.startsWith('parsed-')) {
+      setLocalNodes(editorNodes);
+      setLocalRelations(editorRelations);
+    }
+  }, [editorNodes, editorRelations]);
+
+  const handleDeleteNode = async (nodeId: string) => {
+    try {
+      await api.delete(`/nodes/${nodeId}`);
+      const newNodes = nodes.filter(n => n.id !== nodeId);
+      const newRelations = relations.filter(r => r.sourceId !== nodeId && r.targetId !== nodeId);
+      setLocalNodes(newNodes);
+      setLocalRelations(newRelations);
+      setNodes(newNodes);
+      setRelations(newRelations);
+      message.success('节点已删除');
+    } catch {
+      message.error('删除失败');
+    }
+  };
 
   const buildTree = () => {
     const containsRelations = relations.filter(r => r.type === 'contains');
@@ -93,7 +118,7 @@ export default function NodeTree() {
       return {
         key: node.id,
         title: (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Space size={4} style={{ display: 'flex', alignItems: 'center' }}>
             <Tag 
               color={TYPE_COLORS[node.type] || 'default'} 
               style={{ 
@@ -109,7 +134,19 @@ export default function NodeTree() {
             <Text style={{ fontSize: 12, color: selectedNodes.includes(node.id) ? '#1890ff' : '#333' }}>
               {node.name}
             </Text>
-          </span>
+            <Popconfirm 
+              title="确定删除此节点？" 
+              onConfirm={() => handleDeleteNode(node.id)}
+              placement="right"
+            >
+              <Button 
+                type="text" 
+                size="small" 
+                icon={<DeleteOutlined style={{ fontSize: 12, color: '#ff4d4f' }} />}
+                style={{ marginLeft: 4, padding: '0 4px', height: 20 }}
+              />
+            </Popconfirm>
+          </Space>
         ),
         icon: children.length > 0 ? <FolderOutlined style={{ color: '#1890ff' }} /> : <FileOutlined style={{ color: '#666' }} />,
         children: children.length > 0 ? children : undefined,

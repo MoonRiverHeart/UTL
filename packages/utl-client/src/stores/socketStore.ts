@@ -156,11 +156,12 @@ export const useSocketStore = create<SocketState>((set, get) => ({
   },
 
   disconnect: () => {
-    const { socket, mindmapId } = get();
+    const { socket, mindmapId, connected } = get();
     if (socket) {
-      if (mindmapId) {
+      if (mindmapId && connected) {
         socket.emit('leave_mindmap', { mindmapId });
       }
+      socket.removeAllListeners();
       socket.disconnect();
     }
     set({ socket: null, connected: false, mindmapId: null, onlineUsers: [] });

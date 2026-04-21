@@ -60,11 +60,12 @@ export default function BlueprintEditor() {
   const location = useLocation();
   const { currentMindmap, userRole } = useWorkspaceStore();
   const { nodes, setNodes, relations, setRelations, selectedNodes, selectNode, clearSelection } = useEditorStore();
-  const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, emitBranchCheckout, socket, onlineUsers } = useSocketStore();
+  const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, emitBranchCheckout, socket, onlineUsers, connected } = useSocketStore();
   
   const isViewer = userRole === 'viewer';
   
   const canvasRef = useRef<HTMLDivElement>(null);
+  const connectionDraftRef = useRef<{ sourceId: string; sourceX: number; sourceY: number; targetX: number; targetY: number } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<NodeData | null>(null);
   const [relationDrawerOpen, setRelationDrawerOpen] = useState(false);
@@ -116,10 +117,15 @@ export default function BlueprintEditor() {
     if (mindmapId) {
       connect(mindmapId);
     }
+  }, [mindmapId, connect]);
+
+  useEffect(() => {
     return () => {
-      disconnect();
+      if (connected) {
+        disconnect();
+      }
     };
-  }, [mindmapId, connect, disconnect]);
+  }, [connected, disconnect]);
 
   useEffect(() => {
     if (!socket) return;
@@ -166,18 +172,17 @@ export default function BlueprintEditor() {
   const getNodeColor = (type: string) => NODE_TYPES.find(t => t.value === type)?.color || '#666';
   const getNodeLabel = (type: string) => NODE_TYPES.find(t => t.value === type)?.label || type;
 
-  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
-    if (quickEditNodeId) return;
-    e.stopPropagation();
-    e.preventDefault();
+const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    if (isViewer) return;
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     
+    // parsed-前缀的节点也可以拖动（分屏模式下的临时节点）
+    selectNode(nodeId);
     setDraggedNode(nodeId);
     setDragStartPos({ x: e.clientX, y: e.clientY });
     setDragOffset({ x: e.clientX - node.x, y: e.clientY - node.y });
     setHasDragged(false);
-    selectNode(nodeId);
   };
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -210,11 +215,14 @@ export default function BlueprintEditor() {
     if (draggedNode && hasDragged) {
       const node = nodes.find(n => n.id === draggedNode);
       if (node) {
-        try {
-          await api.put(`/nodes/${draggedNode}`, { position: { x: node.x, y: node.y } });
-          emitNodeUpdate(draggedNode, { x: node.x, y: node.y });
-        } catch (error) {
-          console.error('Failed to save position:', error);
+        // parsed-前缀的节点是临时节点，不需要保存到数据库
+        if (!draggedNode.startsWith('parsed-') && mindmapId) {
+          try {
+            await api.put(`/nodes/${draggedNode}`, { position: { x: node.x, y: node.y } });
+            emitNodeUpdate(draggedNode, { x: node.x, y: node.y });
+          } catch (error) {
+            console.error('Failed to save position:', error);
+          }
         }
       }
     }
@@ -252,9 +260,10 @@ export default function BlueprintEditor() {
   };
 
   const handleNodeClick = (e: React.MouseEvent, nodeId: string) => {
-    if (hasDragged || quickEditNodeId) return;
+    if (hasDragged) return;
     e.stopPropagation();
-    handleQuickEditStart(nodeId);
+    // 单击选中节点
+    selectNode(nodeId);
   };
 
   const handleStartConnection = (e: React.MouseEvent, nodeId: string) => {
@@ -445,7 +454,6 @@ export default function BlueprintEditor() {
         await api.put(`/relations/${editingRelation.id}`, { type: values.type });
         const updatedRelation = { ...editingRelation, type: values.type };
         setRelations(relations.map(r => r.id === editingRelation.id ? updatedRelation : r));
-        emitNodeUpdate(editingRelation.id, { type: values.type });
         message.success('关系类型已更新');
         setRelationDrawerOpen(false);
       }
@@ -624,6 +632,7 @@ export default function BlueprintEditor() {
                   }} 
                   onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                   onClick={(e) => handleNodeClick(e, node.id)}
+                  onDoubleClick={(e) => { e.stopPropagation(); handleQuickEditStart(node.id); }}
                 >
                   <div style={{ padding: '10px 14px', cursor: hasDragged ? 'grab' : 'text' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
