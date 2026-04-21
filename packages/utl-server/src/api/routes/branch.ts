@@ -180,6 +180,10 @@ router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) =>
     const { id } = req.params;
     const { targetBranchId, userId } = req.body;
 
+    if (!targetBranchId) {
+      return res.status(400).json({ error: 'Target branch ID required' });
+    }
+
     const sourceBranch = await prisma.branch.findUnique({ where: { id } });
     const targetBranch = await prisma.branch.findUnique({ where: { id: targetBranchId } });
 
@@ -187,9 +191,26 @@ router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Branch not found' });
     }
 
-    const sourceVersion = await prisma.version.findUnique({
-      where: { id: sourceBranch.headVersionId },
-    });
+    // Get snapshot from source branch's latest version
+    let snapshot = { nodes: [], relations: [] };
+    
+    if (sourceBranch.headVersionId) {
+      const sourceVersion = await prisma.version.findUnique({
+        where: { id: sourceBranch.headVersionId },
+      });
+      if (sourceVersion?.snapshot) {
+        snapshot = sourceVersion.snapshot as { nodes: any[]; relations: any[] };
+      }
+    } else {
+      // Fallback: get latest version if headVersionId is null
+      const latestVersion = await prisma.version.findFirst({
+        where: { branchId: id },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (latestVersion?.snapshot) {
+        snapshot = latestVersion.snapshot as { nodes: any[]; relations: any[] };
+      }
+    }
 
     const newVersion = await prisma.version.create({
       data: {
@@ -197,8 +218,8 @@ router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) =>
         branchId: targetBranchId,
         versionNumber: `v${Date.now()}`,
         message: `Merge from ${sourceBranch.name}`,
-        authorId: userId,
-        snapshot: sourceVersion?.snapshot || { nodes: [], relations: [] },
+        authorId: userId || 'system',
+        snapshot,
       },
     });
 
@@ -214,6 +235,7 @@ router.post('/:id/merge', authMiddleware, async (req: Request, res: Response) =>
 
     res.json({ merged: true, newVersion });
   } catch (error) {
+    console.error('Merge error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
