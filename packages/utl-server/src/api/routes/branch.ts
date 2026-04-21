@@ -10,6 +10,9 @@ router.get('/mindmap/:mindmapId', authMiddleware, async (req: Request, res: Resp
     const branches = await prisma.branch.findMany({
       where: { mindmapId },
       orderBy: { createdAt: 'desc' },
+      include: {
+        parentBranch: { select: { id: true, name: true } },
+      },
     });
     res.json(branches);
   } catch (error) {

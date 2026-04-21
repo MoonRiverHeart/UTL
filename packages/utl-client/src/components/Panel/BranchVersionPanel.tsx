@@ -1,5 +1,5 @@
-import { Drawer, List, Button, Space, Tag, Typography, Input, Modal, Collapse, Timeline, Spin, Empty, Badge, Divider } from 'antd';
-import { PlusOutlined, ApartmentOutlined, SwapOutlined, MergeOutlined, HistoryOutlined, DiffOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
+import { Drawer, List, Button, Space, Tag, Typography, Input, Modal, Collapse, Timeline, Spin, Empty, Badge, Divider, Tree } from 'antd';
+import { PlusOutlined, ApartmentOutlined, SwapOutlined, MergeOutlined, HistoryOutlined, DiffOutlined, RollbackOutlined, SaveOutlined, BranchesOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -16,6 +16,8 @@ interface Branch {
   status: string;
   createdAt: string;
   authorId: string;
+  parentBranchId?: string;
+  parentBranch?: { id: string; name: string };
 }
 
 interface Version {
@@ -283,6 +285,44 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
     }
   };
 
+  const buildBranchTree = (branches: Branch[]): any[] => {
+    const branchMap = new Map<string, Branch>();
+    branches.forEach(b => branchMap.set(b.id, b));
+
+    const rootBranches = branches.filter(b => !b.parentBranchId);
+    const childBranches = branches.filter(b => b.parentBranchId);
+
+    const buildChildren = (parentId: string): any[] => {
+      return childBranches
+        .filter(b => b.parentBranchId === parentId)
+        .map(b => ({
+          key: b.id,
+          title: (
+            <Space>
+              <Text>{b.name}</Text>
+              {b.status === 'merged' && <Tag color="blue">已合并</Tag>}
+              {b.status === 'active' && <Tag color="green">活跃</Tag>}
+              {b.id === currentBranch?.id && <Tag color="orange">当前</Tag>}
+            </Space>
+          ),
+          children: buildChildren(b.id),
+        }));
+    };
+
+    return rootBranches.map(b => ({
+      key: b.id,
+      title: (
+        <Space>
+          <Text strong>{b.name}</Text>
+          {b.status === 'merged' && <Tag color="blue">已合并</Tag>}
+          {b.status === 'active' && <Tag color="green">活跃</Tag>}
+          {b.id === currentBranch?.id && <Tag color="orange">当前</Tag>}
+        </Space>
+      ),
+      children: buildChildren(b.id),
+    }));
+  };
+
   return (
     <Drawer
       title={<Space><ApartmentOutlined /> 分支与版本</Space>}
@@ -322,6 +362,25 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
           <Collapse
             items={[
               {
+                key: 'branchTree',
+                label: <Space><BranchesOutlined /> 分支图谱</Space>,
+                children: (
+                  <Tree
+                    treeData={buildBranchTree(branches)}
+                    defaultExpandAll
+                    onSelect={(selectedKeys) => {
+                      if (selectedKeys.length > 0) {
+                        const branchId = selectedKeys[0] as string;
+                        const branch = branches.find(b => b.id === branchId);
+                        if (branch && branch.status === 'active') {
+                          handleCheckoutBranch(branchId);
+                        }
+                      }
+                    }}
+                  />
+                ),
+              },
+              {
                 key: 'branches',
                 label: <Space><ApartmentOutlined /> 分支列表 ({branches.length})</Space>,
                 children: (
@@ -330,13 +389,15 @@ export default function BranchVersionPanel({ open, onClose }: BranchVersionPanel
                     renderItem={(branch) => (
                       <List.Item
                         actions={[
-                          <Button size="small" icon={<SwapOutlined />} onClick={() => handleCheckoutBranch(branch.id)} disabled={branch.id === currentBranch?.id}>切换</Button>,
+                          <Button size="small" icon={<SwapOutlined />} onClick={() => handleCheckoutBranch(branch.id)} disabled={branch.id === currentBranch?.id || branch.status === 'merged'}>切换</Button>,
                           <Button size="small" icon={<MergeOutlined />} onClick={() => handleMergeBranch(branch.id)} disabled={branch.status !== 'active'}>合并</Button>,
                         ]}
                       >
                         <Space>
                           <Text strong={branch.id === currentBranch?.id}>{branch.name}</Text>
-                          <Badge status={branch.status === 'active' ? 'success' : 'default'} />
+                          {branch.status === 'merged' && <Tag color="blue">已合并</Tag>}
+                          {branch.status === 'active' && <Badge status="success" />}
+                          {branch.status === 'archived' && <Badge status="default" />}
                           {branch.id === currentBranch?.id && <Tag color="green">当前</Tag>}
                         </Space>
                       </List.Item>
