@@ -8,18 +8,22 @@
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 用户认证 | ✅ | JWT认证，登录状态持久化，退出重登录数据保持 |
-| 工作区管理 | ✅ | 创建、选择、切换工作区 |
+| 用户认证 | ✅ | JWT认证，登录状态持久化，退出重登录数据保持，用户注册 |
+| 管理员系统 | ✅ | 管理员角色标识（isAdmin字段），权限控制基础 |
+| 工作区管理 | ✅ | 创建、选择、切换、重命名、删除工作区 |
+| 工作区共享 | ✅ | 邀请成员协作，角色分配（owner/editor/viewer） |
+| 权限控制 | ✅ | 基于角色的权限控制，查看者无法编辑节点和连线 |
 | 脑图管理 | ✅ | 创建、选择、删除脑图 |
 | 节点CRUD | ✅ | 9种节点类型，创建、编辑、删除、拖拽移动 |
-| 节点树显示 | ✅ | 左侧边栏显示节点树状结构 |
+| 节点树显示 | ✅ | 左侧边栏显示节点树状结构，每个节点可删除 |
 | 蓝图式连线 | ✅ | 拖拽连线，默认"包含"关系，点击修改 |
-| UTL脚本编辑 | ✅ | Monaco编辑器，中英文语法高亮 |
+| UTL脚本编辑 | ✅ | Monaco编辑器（CDN加载），中英文语法高亮 |
 | 分屏模式 | ✅ | 左侧脑图+右侧脚本，双向同步 |
+| 双向同步 | ✅ | 脑图→代码实时同步，代码→脑图（syncToMindmap） |
 | 数据库Schema | ✅ | Prisma，14个模型，完整关系定义 |
-| REST API | ✅ | auth/workspaces/mindmaps/nodes/relations |
+| REST API | ✅ | auth/workspaces/mindmaps/nodes/relations/branches/versions |
 | MCP工具 | ✅ | nodeTools/relationTools/mindmapTools |
-| WebSocket | ✅ | 协作服务器基础架构 |
+| WebSocket | ✅ | 协作服务器基础架构，节点/关系/分支事件同步 |
 
 ### Phase 2 - 已完成 ✅
 
@@ -28,6 +32,7 @@
 | 继承解析引擎 | ✅ | UTL继承关系解析器，合并策略支持 |
 | 节点属性面板 | ✅ | 编辑节点属性，配置继承关系，查看因子继承 |
 | 继承关系显示 | ✅ | 属性面板显示继承链和合并策略 |
+| UTL语法验证 | ✅ | 导入前语法检查，错误提示 |
 
 ### Phase 3 - 已完成 ✅
 
@@ -36,16 +41,20 @@
 | WebSocket完善 | ✅ | 光标同步，用户列表，编辑锁定 |
 | 协作面板 | ✅ | 在线用户显示，实时聊天，系统消息 |
 | 编辑锁 | ✅ | 节点编辑时锁定，防止并发冲突 |
+| 实时同步事件 | ✅ | node_create/node_delete/relation_create/relation_delete广播 |
 
 ### Phase 4 - 已完成 ✅
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
 | 分支管理API | ✅ | 创建/切换/合并/删除分支 |
+| 分支图谱 | ✅ | 树形视图显示分支层级关系 |
+| 分支状态 | ✅ | 活跃/已合并状态标识，已合并分支不可切换 |
 | 版本快照 | ✅ | 保存节点状态快照 |
 | 版本历史 | ✅ | 版本列表，版本详情 |
 | 版本对比 | ✅ | diff两个版本差异 |
 | 版本恢复 | ✅ | 恢复到历史版本 |
+| 分支WebSocket | ✅ | branch_checkout/branch_changed事件同步 |
 
 ### Phase 5 - 已完成 ✅
 
@@ -56,12 +65,21 @@
 | 问题跟踪 | ✅ | Issue创建/更新/删除 |
 | 问题筛选 | ✅ | 按状态/严重性/脑图筛选 |
 
-### Phase 6 - 规划中 🚧
+### Phase 6 - 已完成 ✅
 
 | 功能 | 状态 | 说明 |
 |------|------|------|
-| 导入导出 | 🚧 | UTL文件导入导出 |
-| 性能优化 | 🚧 | 大规模节点性能优化 |
+| 导入导出 | ✅ | UTL文件导入导出，语法验证 |
+| 性能优化 | 🚧 | 大规模节点性能优化（待实现） |
+| 端到端测试 | 🚧 | 完整测试覆盖（待实现） |
+
+### Phase 7 - 规划中 🚧
+
+| 功能 | 状态 | 说明 |
+|------|------|------|
+| 合并请求 | 🚧 | MR流程，代码审查 |
+| 冲突解决 | 🚧 | 合并冲突检测与解决 |
+| 性能优化 | 🚧 | 大规模节点渲染优化 |
 | 端到端测试 | 🚧 | 完整测试覆盖 |
 
 ---
@@ -83,10 +101,16 @@
 | 蓝图式连线 | 节点拖拽连接，支持包含/继承/引用/依赖关系 | ✅ 已实现 |
 | 实时同步 | 分屏模式脑图与脚本双向同步 | ✅ 已实现 |
 | 中文语法 | UTL语言原生支持中文关键字 | ✅ 已实现 |
-| 实时协作 | 多用户同时编辑，WebSocket同步 | 🚧 规划中 |
-| 版本控制 | Git风格的分支管理，版本历史 | 🚧 规划中 |
-| 继承关系 | UTL支持场景/功能分开定义，声明继承关系 | 🚧 规划中 |
-| 测试结果标记 | 用例状态标记，问题跟踪 | 🚧 规划中 |
+| 用户认证 | JWT认证，登录状态持久化，用户注册 | ✅ 已实现 |
+| 管理员系统 | 管理员角色标识，权限控制 | ✅ 已实现 |
+| 工作区管理 | 多工作区、多脑图管理，重命名/删除 | ✅ 已实现 |
+| 工作区共享 | 邀请成员协作，角色分配（owner/editor/viewer） | ✅ 已实现 |
+| 权限控制 | 基于角色的权限控制，查看者无法编辑 | ✅ 已实现 |
+| 实时协作 | 多用户同时编辑，WebSocket同步 | ✅ 已实现 |
+| 版本控制 | Git风格的分支管理，版本历史，分支图谱 | ✅ 已实现 |
+| 继承关系 | UTL支持场景/功能分开定义，声明继承关系 | ✅ 已实现 |
+| 测试结果标记 | 用例状态标记，问题跟踪 | ✅ 已实现 |
+| 导入导出 | UTL文件导入导出，语法验证 | ✅ 已实现 |
 
 ---
 
@@ -99,12 +123,24 @@
 │  │  Layout      │  │           Editor Components           │   │
 │  │  - Sidebar   │  │  ┌─────────────────────────────────┐ │   │
 │  │    - 工作区  │  │  │ Canvas.tsx (蓝图式编辑器)        │ │   │
-│  │    - 脑图    │  │  │ ScriptEditor.tsx (Monaco)        │ │   │
-│  │    - 节点树  │  │  │ SplitEditor.tsx (分屏)           │ │   │
-│  │  - StatusBar │  │  └─────────────────────────────────┘ │   │
+│  │    - 脑图    │  │  │   - 单击选中/双击编辑            │ │   │
+│  │    - 节点树  │  │  │   - 查看者权限限制              │ │   │
+│  │  - StatusBar │  │  │   - parsed-节点支持              │ │   │
+│  │              │  │  │ ScriptEditor.tsx (Monaco CDN)    │ │   │
+│  │              │  │  │   - 双向同步逻辑                 │ │   │
+│  │              │  │  │   - syncToMindmap               │ │   │
+│  │              │  │  │ SplitEditor.tsx (分屏)           │ │   │
+│  │              │  │  └─────────────────────────────────┘ │   │
+│  │              │  │  ┌─────────────────────────────────┐ │   │
+│  │              │  │  │ Panel Components                │ │   │
+│  │              │  │  │ BranchVersionPanel (分支图谱)   │ │   │
+│  │              │  │  │ PropertyPanel (属性编辑)        │ │   │
+│  │              │  │  │ CollaborationPanel (协作)       │ │   │
+│  │              │  │  └─────────────────────────────────┘ │   │
 │  └──────────────┘  └───────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Zustand Stores: authStore | workspaceStore | editorStore │   │
+│  │                   socketStore | branchStore               │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │ REST API + WebSocket
@@ -113,11 +149,23 @@
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │
 │  │ REST Routes │ │  WebSocket  │ │ MCP Tools   │ │ Prisma   │ │
 │  │ - auth      │ │  Server     │ │ - nodeTools │ │ Client   │ │
-│  │ - workspace │ │             │ │ - relTools  │ │          │ │
-│  │ - mindmap   │ │             │ │ - mapTools  │ │          │ │
-│  │ - node      │ │             │ │             │ │          │ │
-│  │ - relation  │ │             │ │             │ │          │ │
+│  │   - login   │ │             │ │ - relTools  │ │          │ │
+│  │   - register│ │ Events:     │ │ - mapTools  │ │          │ │
+│  │ - workspace │ │ - join/leave│ │             │ │          │ │
+│  │   - collab  │ │ - cursor    │ │             │ │          │ │
+│  │ - mindmap   │ │ - node_*    │ │             │ │          │ │
+│  │ - node      │ │ - relation_*│ │             │ │          │ │
+│  │ - relation  │ │ - branch_*  │ │             │ │          │ │
+│  │ - branch    │ │ - chat      │ │             │ │          │ │
+│  │ - version   │ │             │ │             │ │          │ │
+│  │ - results   │ │             │ │             │ │          │ │
+│  │ - import    │ │             │ │             │ │          │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Middleware: auth.ts | permission.ts | errorHandler.ts    │   │
+│  │  permission.ts: checkWorkspaceAccess | checkNodeAccess    │   │
+│  │               owner/editor/viewer role enforcement        │   │
+│  └──────────────────────────────────────────────────────────┘   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────────┐
@@ -125,6 +173,7 @@
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────┐ │
 │  │ Lexer       │ │ Parser      │ │ AST         │ │ Codegen  │ │
 │  │ (中文识别)  │ │             │ │ Nodes       │ │          │ │
+│  │ (双语支持)  │ │             │ │             │ │ generate │ │
 │  └─────────────┘ └─────────────┘ └─────────────┘ └──────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -133,8 +182,82 @@
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ Models: User | Workspace | Collaborator | Mindmap        │   │
 │  │         Node | Relation | Branch | Version | TestResult │   │
+│  │         Issue | Attachment | CollaborationSession       │   │
+│  │ User.isAdmin: 管理员标识                                 │   │
+│  │ Collaborator.role: owner/editor/viewer                   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 1.3 用户认证与权限系统
+
+### 用户角色
+
+| 角色 | 标识 | 权限 |
+|------|------|------|
+| 管理员 | `isAdmin: true` | 系统级管理权限（后续扩展） |
+| 工作区所有者 | `role: 'owner'` | 工作区管理、成员管理、脑图管理 |
+| 编辑者 | `role: 'editor'` | 节点/连线创建、编辑、删除 |
+| 查看者 | `role: 'viewer'` | 仅查看，无法编辑 |
+
+### 权限控制实现
+
+```typescript
+// packages/utl-server/src/api/middleware/permission.ts
+
+// 检查工作区访问权限
+export const checkWorkspaceAccess = async (req, res, next) => {
+  const userId = req.user.id;
+  const workspaceId = req.params.workspaceId || req.body.workspaceId;
+  
+  const collaborator = await prisma.collaborator.findFirst({
+    where: { workspaceId, userId }
+  });
+  
+  if (!collaborator) {
+    return res.status(403).json({ error: '无权访问此工作区' });
+  }
+  
+  req.userRole = collaborator.role; // owner/editor/viewer
+  next();
+};
+
+// 检查编辑权限（owner/editor可编辑，viewer不可）
+export const checkEditPermission = (req, res, next) => {
+  if (req.userRole === 'viewer') {
+    return res.status(403).json({ error: '查看者无编辑权限' });
+  }
+  next();
+};
+
+// 检查所有者权限（仅owner可管理成员）
+export const checkOwnerPermission = (req, res, next) => {
+  if (req.userRole !== 'owner') {
+    return res.status(403).json({ error: '仅所有者可执行此操作' });
+  }
+  next();
+};
+```
+
+### 前端权限限制
+
+```typescript
+// packages/utl-client/src/components/Editor/MindmapEditor/Canvas.tsx
+
+// 根据角色限制编辑操作
+const isViewer = userRole === 'viewer';
+
+// 查看者无法拖拽节点
+if (!isViewer && !nodeId.startsWith('parsed-') && mindmapId) {
+  await api.put(`/nodes/${nodeId}`, { position });
+}
+
+// 查看者无法创建连线
+if (isViewer) {
+  // 禁用连线创建功能
+}
 ```
 
 ---
@@ -758,55 +881,71 @@ interface TestResultSummary {
 
 ```
 认证模块
-├── POST   /api/auth/login              # 登录
+├── POST   /api/auth/login              # 登录，返回JWT
+├── POST   /api/auth/register           # 注册新用户 ✅ 已实现
 ├── POST   /api/auth/logout             # 登出
-└── GET    /api/auth/me                 # 当前用户
+└── GET    /api/auth/me                 # 当前用户信息
 
 工作区模块
-├── GET    /api/workspaces              # 工作区列表
+├── GET    /api/workspaces              # 工作区列表（含用户角色信息） ✅ 已实现
 ├── POST   /api/workspaces              # 创建工作区
-├── PUT    /api/workspaces/:id          # 更新工作区
-├── DELETE /api/workspaces/:id          # 删除工作区
-├── POST   /api/workspaces/:id/collaborators  # 添加协作者
-└── DELETE /api/workspaces/:id/collaborators/:uid # 移除协作者
+├── GET    /api/workspaces/:id          # 工作区详情
+├── PUT    /api/workspaces/:id          # 更新工作区名称（仅所有者） ✅ 已实现
+├── DELETE /api/workspaces/:id          # 删除工作区（仅所有者）
+├── GET    /api/workspaces/:id/collaborators  # 获取协作者列表 ✅ 已实现
+├── POST   /api/workspaces/:id/collaborators  # 邀请成员（仅所有者） ✅ 已实现
+├── PUT    /api/workspaces/:id/collaborators/:uid  # 更新成员角色 ✅ 已实现
+└── DELETE /api/workspaces/:id/collaborators/:uid # 移除成员（仅所有者） ✅ 已实现
 
 脑图模块
-├── GET    /api/workspaces/:wid/mindmaps    # 脑图列表
-├── POST   /api/workspaces/:wid/mindmaps    # 创建脑图
-├── GET    /api/mindmaps/:id                # 脑图详情
-├── PUT    /api/mindmaps/:id                # 更新脑图
-├── DELETE /api/mindmaps/:id                # 删除脑图
-├── POST   /api/mindmaps/:id/export         # 导出UTL
-├── POST   /api/mindmaps/:id/import         # 导入UTL
+├── GET    /api/mindmaps/workspace/:id  # 工作区下的脑图 ✅ 已实现
+├── POST   /api/mindmaps/workspace/:id  # 创建脑图
+├── GET    /api/mindmaps/:id            # 脑图详情（含节点和关系）
+├── PUT    /api/mindmaps/:id            # 更新脑图（含utlSource）
+├── DELETE /api/mindmaps/:id            # 删除脑图
+├── POST   /api/mindmaps/:id/export     # 导出UTL ✅ 已实现
+├── POST   /api/mindmaps/:id/import     # 导入UTL（含语法验证） ✅ 已实现
+
+导入导出模块 ✅ 已实现
+├── POST   /api/import/mindmap/:id/import  # 导入UTL文件创建节点
+├── GET    /api/import/mindmap/:id/export  # 导出UTL文件
+├── POST   /api/import/parse              # 解析UTL源码
+├── POST   /api/import/validate           # 验证UTL语法
 
 节点模块
-├── GET    /api/mindmaps/:mid/nodes         # 节点列表
-├── POST   /api/mindmaps/:mid/nodes         # 创建节点
-├── GET    /api/nodes/:id                   # 节点详情
-├── PUT    /api/nodes/:id                   # 更新节点
-├── DELETE /api/nodes/:id                   # 删除节点
-├── POST   /api/nodes/:id/extend            # 设置继承
-├── GET    /api/nodes/:id/inheritance       # 获取继承链
+├── GET    /api/nodes/mindmap/:id       # 获取节点列表 ✅ 已实现
+├── POST   /api/nodes/mindmap/:id       # 创建节点 ✅ 已实现
+├── GET    /api/nodes/:id               # 节点详情
+├── PUT    /api/nodes/:id               # 更新节点（位置、名称等） ✅ 已实现
+├── DELETE /api/nodes/:id               # 删除节点 ✅ 已实现
+├── POST   /api/nodes/:id/extend        # 设置继承
+├── GET    /api/nodes/:id/inheritance   # 获取继承链
+
+关系模块
+├── GET    /api/relations/mindmap/:id   # 关系列表 ✅ 已实现
+├── POST   /api/relations               # 创建关系 ✅ 已实现
+├── PUT    /api/relations/:id           # 更新关系类型 ✅ 已实现
+├── DELETE /api/relations/:id           # 删除关系 ✅ 已实现
 
 分支模块
-├── GET    /api/mindmaps/:mid/branches      # 分支列表
-├── POST   /api/mindmaps/:mid/branches      # 创建分支
-├── GET    /api/branches/:id                # 分支详情
-├── PUT    /api/branches/:id                # 更新分支
-├── DELETE /api/branches/:id                # 删除分支（仅active）
-├── POST   /api/branches/:id/checkout       # 切换到分支
-├── POST   /api/branches/:id/merge          # 合并分支
-├── GET    /api/branches/:id/conflicts      # 获取冲突
+├── GET    /api/branches/mindmap/:id    # 获取脑图的分支列表 ✅ 已实现
+├── POST   /api/branches/mindmap/:id    # 创建新分支 ✅ 已实现
+├── GET    /api/branches/:id            # 分支详情（含版本历史） ✅ 已实现
+├── PUT    /api/branches/:id            # 更新分支名称/描述
+├── DELETE /api/branches/:id            # 删除分支（仅active状态）
+├── POST   /api/branches/:id/checkout   # 切换到该分支 ✅ 已实现
+├── POST   /api/branches/:id/merge      # 合并分支到当前分支 ✅ 已实现
+├── GET    /api/branches/:id/conflicts  # 获取冲突
 
 版本模块
-├── GET    /api/branches/:bid/versions      # 版本列表
-├── POST   /api/branches/:bid/versions      # 创建版本
-├── GET    /api/versions/:id                # 版本详情
-├── POST   /api/versions/:id/restore        # 恢复版本
-├── GET    /api/versions/:id1/diff/:id2     # 版本对比
-├── DELETE /api/versions/:id                # 删除版本（仅draft）
+├── GET    /api/versions/branch/:id     # 获取分支的版本历史 ✅ 已实现
+├── POST   /api/versions/branch/:id     # 创建新版本快照 ✅ 已实现
+├── GET    /api/versions/:id            # 版本详情 ✅ 已实现
+├── POST   /api/versions/:id/restore    # 恢复到该版本 ✅ 已实现
+├── GET    /api/versions/:id1/diff/:id2 # 版本对比 ✅ 已实现
+├── DELETE /api/versions/:id            # 删除版本（仅draft）
 
-合并请求模块
+合并请求模块（待实现）
 ├── GET    /api/mindmaps/:mid/merge-requests    # MR列表
 ├── POST   /api/mindmaps/:mid/merge-requests    # 创建MR
 ├── GET    /api/merge-requests/:id              # MR详情
@@ -816,16 +955,16 @@ interface TestResultSummary {
 ├── POST   /api/merge-requests/:id/close        # 关闭MR
 
 测试结果模块
-├── POST   /api/testcases/:id/result            # 提交结果
-├── PUT    /api/testcases/:id/result            # 更新结果
-├── GET    /api/testcases/:id/result            # 获取结果
-├── GET    /api/mindmaps/:id/results/summary    # 结果统计
-├── POST   /api/testcases/:id/issues            # 创建问题
-├── PUT    /api/issues/:id                      # 更新问题
-├── DELETE /api/issues/:id                      # 删除问题
-├── GET    /api/issues                          # 问题列表
-├── POST   /api/attachments                     # 上传附件
-├── DELETE /api/attachments/:id                 # 删除附件
+├── POST   /api/results/testcase/:id   # 提交/更新测试结果 ✅ 已实现
+├── GET    /api/results/testcase/:id   # 获取用例测试结果 ✅ 已实现
+├── GET    /api/results/mindmap/:id/summary  # 测试统计汇总 ✅ 已实现
+├── POST   /api/results/issue          # 创建问题 ✅ 已实现
+├── GET    /api/results/issue          # 问题列表（支持筛选） ✅ 已实现
+├── GET    /api/results/issue/:id      # 问题详情 ✅ 已实现
+├── PUT    /api/results/issue/:id      # 更新问题状态 ✅ 已实现
+├── DELETE /api/results/issue/:id      # 删除问题 ✅ 已实现
+├── POST   /api/attachments            # 上传附件
+├── DELETE /api/attachments/:id        # 删除附件
 ```
 
 ### 5.2 WebSocket事件
@@ -845,13 +984,15 @@ type ClientEvent =
   | { type: 'relation_create'; relation: RelationCreateInput }
   | { type: 'relation_delete'; relationId: string }
   | { type: 'version_create'; message: string }
-  | { type: 'branch_switch'; branchId: string }
+  | { type: 'branch_checkout'; branchId: string }  // 新增：分支切换
+  | { type: 'branch_changed'; branchId: string }   // 新增：分支变化通知
   | { type: 'chat_message'; content: string };
 
 // 服务端 -> 客户端
 type ServerEvent =
   | { type: 'user_joined'; userId: string; username: string; color: string }
   | { type: 'user_left'; userId: string }
+  | { type: 'users_list'; users: OnlineUser[] }           // 新增：在线用户列表
   | { type: 'user_cursor'; userId: string; position: Position }
   | { type: 'user_selecting'; userId: string; nodeId: string }
   | { type: 'user_editing'; userId: string; nodeId: string; field: string }
@@ -862,10 +1003,32 @@ type ServerEvent =
   | { type: 'relation_deleted'; relationId: string; by: string }
   | { type: 'version_created'; version: Version; by: string }
   | { type: 'branch_switched'; branchId: string; by: string }
+  | { type: 'branch_changed'; branchId: string; by: string }  // 新增：广播分支变化
   | { type: 'sync_state'; state: MindmapState }
   | { type: 'conflict_detected'; conflict: ConflictInfo }
+  | { type: 'edit_locked'; nodeId: string; userId: string }   // 新增：编辑锁定通知
   | { type: 'chat_message'; from: string; content: string; timestamp: Date };
 ```
+
+**已实现的WebSocket事件：**
+
+| 事件 | 方向 | 说明 |
+|------|------|------|
+| `join_mindmap` | 客户端→服务端 | 加入脑图协作房间 |
+| `leave_mindmap` | 客户端→服务端 | 离开协作房间 |
+| `user_joined` | 服务端→客户端 | 用户加入通知 |
+| `user_left` | 服务端→客户端 | 用户离开通知 |
+| `users_list` | 服务端→客户端 | 当前在线用户列表 |
+| `cursor_move` | 客户端→服务端 | 光标位置同步 |
+| `node_update` | 客户端→服务端 | 节点更新广播 |
+| `node_create` | 客户端→服务端 | 节点创建广播 |
+| `node_delete` | 客户端→服务端 | 节点删除广播 |
+| `relation_create` | 客户端→服务端 | 关系创建广播 |
+| `relation_delete` | 客户端→服务端 | 关系删除广播 |
+| `branch_checkout` | 客户端→服务端 | 分支切换广播 |
+| `branch_changed` | 服务端→客户端 | 分支变化通知 |
+| `chat_message` | 双向 | 聊天消息 |
+| `edit_locked` | 服务端→客户端 | 编辑锁定通知 |
 
 ### 5.3 MCP工具
 
@@ -1939,7 +2102,7 @@ utl-project/
 
 ---
 
-## 十三、Phase 1 已实现细节
+## 十三、Phase 1-6 已实现细节
 
 ### 13.1 前端组件实现
 
@@ -1950,12 +2113,14 @@ utl-client/src/components/
 │       - 渐变背景设计
 │       - 登录成功后自动跳转
 │       - 支持退出重登录数据保持
+│       - 用户注册入口 ✅
 │
 ├── Layout/
 │   ├── Layout.tsx
 │       - 左侧边栏：渐变色头部、用户头像
 │       - 工作区选择器、脑图选择器
 │       - 节点树组件嵌入
+│       - 管理员标识显示 ✅
 │   └── StatusBar.tsx
 │       - 渐变背景、模式切换按钮
 │       - 节点/连接统计、选中状态显示
@@ -1963,20 +2128,26 @@ utl-client/src/components/
 ├── Editor/
 │   ├── MindmapEditor/Canvas.tsx
 │       - 蓝图式节点编辑器
+│       - 单击选中节点 ✅
+│       - 双击节点：inline快速编辑 ✅
 │       - 拖拽移动节点（5px阈值判断）
-│       - 点击节点名称：inline快速编辑
+│       - 查看者权限限制：无法拖拽/连线 ✅
+│       - parsed-节点支持（临时节点可拖动） ✅
 │       - 右侧蓝色圆点：拖拽创建连线
 │       - 连线默认"包含"关系
 │       - 点击连线徽章：修改关系类型或删除
 │       - SVG连线：节点右侧→目标节点左侧
-│       - 工具栏：快速添加节点下拉菜单
+│       - 工具栏：快速添加节点下拉菜单、删除按钮 ✅
+│       - Popconfirm删除确认 ✅
 │   │
 │   ├── ScriptEditor.tsx
-│       - Monaco编辑器
+│       - Monaco编辑器（CDN加载） ✅
 │       - UTL中英文语法高亮
-│       - "从脑图同步"按钮
-│       - "同步到脑图"按钮（解析UTL创建节点）
+│       - "从脑图同步"按钮（generateUTL）
+│       - "同步到脑图"按钮（syncToMindmap） ✅
+│       - 实时预览临时节点（parsed-前缀） ✅
 │       - 分屏模式自动同步
+│       - 关系同步（sourceId/targetId修正） ✅
 │   │
 │   ├── SplitEditor.tsx
 │       - 左右分栏布局
@@ -1987,13 +2158,41 @@ utl-client/src/components/
 │       - 脑图/脚本/分屏模式切换
 │       - 自动路由跳转
 │
-└── Sidebar/
-    └── NodeTree.tsx
-        - 节点树状结构显示
-        - 按包含关系构建树
-        - 类型标签+节点名称
-        - 点击选中对应节点
-        - 空状态提示
+├── Sidebar/
+│   └── NodeTree.tsx
+│       - 节点树状结构显示
+│       - 按包含关系构建树
+│       - 类型标签+节点名称
+│       - 点击选中对应节点
+│       - 每个节点右侧删除按钮 ✅
+│       - 删除后同步editorStore ✅
+│       - 空状态提示
+│
+├── Panel/
+│   ├── BranchVersionPanel.tsx ✅
+│       - 分支图谱树形视图
+│       - 分支状态标识（活跃/已合并）
+│       - 当前分支高亮显示
+│       - 已合并分支不可切换
+│       - 版本历史列表
+│       - 版本对比功能
+│       - 恢复历史版本
+│       - 保存版本快照
+│   │
+│   ├── PropertyPanel.tsx
+│       - 编辑节点属性
+│       - 配置继承关系
+│       - 查看因子继承
+│   │
+│   └── CollaborationPanel.tsx
+│       - 在线用户显示
+│       - 实时聊天
+│       - 光标位置同步
+│
+└── Modals/
+    ├── CreateBranchModal.tsx
+    ├── MergeBranchModal.tsx
+    └── SaveVersionModal.tsx
 ```
 
 ### 13.2 状态管理实现
@@ -2001,7 +2200,7 @@ utl-client/src/components/
 ```typescript
 // authStore.ts - 认证状态
 interface AuthState {
-  user: User | null;
+  user: User | null;  // 含isAdmin字段
   token: string | null;
   isAuthenticated: boolean;
   isInitialized: boolean;
@@ -2013,8 +2212,9 @@ interface AuthState {
 
 // workspaceStore.ts - 工作区状态
 interface WorkspaceState {
-  workspaces: Workspace[];
+  workspaces: Workspace[];  // 含用户角色信息
   currentWorkspace: Workspace | null;
+  userRole: 'owner' | 'editor' | 'viewer' | null;  // 当前用户角色 ✅
   mindmaps: Mindmap[];
   currentMindmap: Mindmap | null;
   loadWorkspaces: () => Promise<void>;
@@ -2039,6 +2239,35 @@ interface EditorState {
   setRelations: (relations) => void;
   selectNode: (id) => void;
   clearSelection: () => void;
+  deleteNode: (id) => void;  // 新增 ✅
+}
+
+// socketStore.ts - WebSocket状态 ✅
+interface SocketState {
+  socket: Socket | null;
+  onlineUsers: OnlineUser[];
+  isConnected: boolean;
+  joinMindmap: (mindmapId, branchId) => void;
+  leaveMindmap: () => void;
+  emitNodeUpdate: (nodeId, changes) => void;
+  emitNodeCreate: (node) => void;
+  emitNodeDelete: (nodeId) => void;
+  emitRelationCreate: (relation) => void;
+  emitRelationDelete: (relationId) => void;
+  emitBranchCheckout: (branchId) => void;
+  sendChat: (content) => void;
+}
+
+// branchStore.ts - 分支状态 ✅
+interface BranchState {
+  branches: Branch[];
+  currentBranch: Branch | null;
+  versions: Version[];
+  loadBranches: (mindmapId) => Promise<void>;
+  checkoutBranch: (branchId) => Promise<void>;
+  mergeBranch: (sourceId) => Promise<void>;
+  createVersion: (message) => Promise<void>;
+  restoreVersion: (versionId) => Promise<void>;
 }
 ```
 
@@ -2048,15 +2277,19 @@ interface EditorState {
 utl-server/src/api/routes/
 ├── auth.ts
 │   POST /login     - 验证用户，返回JWT
+│   POST /register  - 注册新用户 ✅
 │   POST /logout    - 无操作（前端清除token）
-│   GET  /me        - 返回当前用户信息
+│   GET  /me        - 返回当前用户信息（含isAdmin）
 │
 ├── workspace.ts
-│   GET    /        - 返回用户的工作区列表
+│   GET    /        - 返回用户的工作区列表（含角色）
 │   POST   /        - 创建工作区
-│   GET    /:id     - 工作区详情
-│   PUT    /:id     - 更新名称
-│   DELETE /:id     - 删除
+│   PUT    /:id     - 更新名称（仅所有者） ✅
+│   DELETE /:id     - 删除（仅所有者）
+│   GET    /:id/collaborators  - 协作者列表 ✅
+│   POST   /:id/collaborators  - 邀请成员 ✅
+│   PUT    /:id/collaborators/:uid  - 更新角色 ✅
+│   DELETE /:id/collaborators/:uid  - 移除成员 ✅
 │
 ├── mindmap.ts
 │   GET  /workspace/:id  - 工作区下的脑图
@@ -2069,14 +2302,55 @@ utl-server/src/api/routes/
 │   GET  /mindmap/:id    - 获取节点列表
 │   POST /mindmap/:id    - 创建节点
 │   GET  /:id            - 节点详情
-│   PUT  /:id            - 更新（x/y/name/description）
-│   DELETE /:id          - 删除
+│   PUT  /:id            - 更新（位置、名称等）
+│   DELETE /:id          - 删除节点
 │
-└── relation.ts
+├── relation.ts
 │   GET  /mindmap/:id    - 关系列表
 │   POST /               - 创建关系
 │   PUT  /:id            - 更新关系类型
-│   DELETE /:id          - 删除
+│   DELETE /:id          - 删除关系
+│
+├── branch.ts ✅
+│   GET  /mindmap/:id    - 分支列表（含层级关系）
+│   POST /mindmap/:id    - 创建分支
+│   GET  /:id            - 分支详情（含版本）
+│   POST /:id/checkout   - 切换分支
+│   POST /:id/merge      - 合并分支（使用auth用户ID）
+│
+├── version.ts ✅
+│   GET  /branch/:id     - 版本列表
+│   POST /branch/:id     - 创建版本快照
+│   GET  /:id            - 版本详情
+│   POST /:id/restore    - 恢复版本
+│   GET  /:id1/diff/:id2 - 版本对比
+│
+├── results.ts ✅
+│   POST /testcase/:id   - 提交测试结果
+│   GET  /testcase/:id   - 获取结果
+│   GET  /mindmap/:id/summary  - 统计汇总
+│   POST /issue          - 创建问题
+│   GET  /issue          - 问题列表
+│   PUT  /issue/:id      - 更新问题
+│   DELETE /issue/:id    - 删除问题
+│
+└── import.ts ✅
+│   POST /mindmap/:id/import  - 导入UTL
+│   GET  /mindmap/:id/export  - 导出UTL
+│   POST /parse            - 解析UTL源码
+│   POST /validate         - 验证UTL语法
+
+middleware/
+├── auth.ts
+│   - JWT验证
+│   - req.user设置
+│
+├── permission.ts ✅
+│   - checkWorkspaceAccess: 检查工作区访问权限
+│   - checkNodeAccess: 检查节点访问权限
+│   - checkEditPermission: 检查编辑权限（viewer不可）
+│   - checkOwnerPermission: 检查所有者权限
+│   - req.userRole设置
 ```
 
 ### 13.4 数据库Schema实现
@@ -2084,8 +2358,10 @@ utl-server/src/api/routes/
 ```prisma
 // 已实现的14个模型
 model User {
-  id, username, passwordHash, email, createdAt, updatedAt
+  id, username, passwordHash, email, isAdmin, createdAt, updatedAt
+  // isAdmin: 管理员标识 ✅
   workspaces Workspace[]
+  collaborations Collaborator[]
 }
 
 model Workspace {
@@ -2096,16 +2372,19 @@ model Workspace {
 
 model Collaborator {
   id, workspaceId, userId, role, joinedAt
+  // role: owner/editor/viewer ✅
 }
 
 model Mindmap {
-  id, name, workspaceId, utlSource, createdAt, updatedAt
+  id, name, workspaceId, utlSource, currentBranchId, createdAt, updatedAt
   nodes Node[]
   relations Relation[]
+  branches Branch[]
 }
 
 model Node {
-  id, type, name, description, x, y, workspaceId, mindmapId
+  id, type, name, description, workspaceId, mindmapId, parentId
+  x, y (position) ✅
   position Json?, metadata Json?
   relationsAsSource Relation[]
   relationsAsTarget Relation[]
@@ -2113,16 +2392,33 @@ model Node {
 
 model Relation {
   id, sourceId, targetId, mindmapId, type, createdAt
+  // type: contains/extends/references/depends_on
   source Node, target Node
 }
 
-model Branch { ... }      // 已定义，待实现
-model Version { ... }     // 已定义，待实现
-model MergeRequest { ... } // 已定义，待实现
-model MergeConflict { ... } // 已定义，待实现
-model TestResult { ... }   // 已定义，待实现
-model Issue { ... }        // 已定义，待实现
-model Attachment { ... }   // 已定义，待实现
+model Branch ✅ 已实现
+  id, mindmapId, name, description, parentBranchId
+  headVersionId, authorId, status, mergedTo, mergedAt
+  // status: active/merged
+
+model Version ✅ 已实现
+  id, mindmapId, branchId, versionNumber, message, authorId
+  parentVersionId, snapshot (nodes/relations), diff
+  // 快照包含完整节点和关系数据
+
+model MergeRequest  // 待实现
+model MergeConflict // 待实现
+
+model TestResult ✅ 已实现
+  id, testCaseId, status, executedAt, executedBy
+  // status: untested/passed/failed/blocked/skipped
+
+model Issue ✅ 已实现
+  id, testCaseId, title, description, severity, priority
+  status, reportedBy, assignedTo, resolvedBy
+  // severity: critical/major/minor/suggestion
+
+model Attachment  // 待实现
 ```
 
 ### 13.5 MCP工具实现
@@ -2152,10 +2448,30 @@ mindmap_save: { mindmapId, nodes, relations }
 | 节点渲染 | 自定义SVG | AntV G6 v5 API大改，自定义更灵活 |
 | 连线方式 | SVG line | 简单直接，便于点击交互 |
 | 拖拽判断 | 5px阈值 | 区分拖拽和点击编辑 |
+| 节点选中 | 单击选中，双击编辑 | 更符合常见UI交互模式 ✅ |
+| Monaco加载 | CDN方式 | vite-plugin-monaco-editor不兼容，CDN更稳定 ✅ |
 | 状态持久化 | Zustand persist | 只存token，不存敏感数据 |
 | 退出登录 | 清空workspaceStore | 确保重新登录数据刷新 |
 | Prisma版本 | 5.22.0 | 7.x配置方式改变，锁定稳定版 |
 | 包管理 | pnpm | npm 11 + Node 25兼容问题 |
+| 权限控制 | 中间件+前端检查 | 双重保障，viewer无法编辑 ✅ |
+| 分支合并 | 使用auth用户ID | 合并操作需要真实用户标识 ✅ |
+| 双向同步 | syncToMindmap函数 | 代码→脑图需要显式触发 ✅ |
+| 关系方向 | sourceId=父节点 | generateUTL时修正关系方向 ✅ |
+
+### 13.7 已修复问题
+
+| 问题 | 原因 | 解决方案 |
+|------|------|------|
+| Popconfirm未定义 | 缺少Antd导入 | 添加Popconfirm/Select导入 ✅ |
+| WebSocket连接失败 | 连接时机过早 | 优化socketStore连接逻辑 ✅ |
+| 分支合并使用system | 未使用auth用户ID | 从req.user获取真实用户 ✅ |
+| 节点位置NaN | 数据库字段为null | 添加Number.isFinite安全检查 ✅ |
+| 关系方向错误 | sourceId/targetId混淆 | generateUTL修正为sourceId=父节点 ✅ |
+| Monaco插件报错 | ESM兼容问题 | 回退使用CDN加载 ✅ |
+| Safari跟踪防护 | CDN资源访问限制 | 不影响功能，仅警告 ✅ |
+| 分支图谱线性显示 | 未显示层级关系 | BranchVersionPanel改为树形视图 ✅ |
+| 查看者可编辑 | 前端无权限检查 | Canvas添加isViewer判断 ✅ |
 
 ---
 
