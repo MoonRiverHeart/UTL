@@ -98,6 +98,8 @@
 | 特性 | 描述 | 状态 |
 |------|------|------|
 | 三种编辑模式 | 脑图编辑、UTL脚本编辑、分屏双向同步 | ✅ 已实现 |
+| 曲线连接 | 贝塞尔曲线连接，箭头标识方向，避免遮挡 | ✅ 已实现 |
+| 约束布局模式 | 自动布局，删除节点后重新排列，紧凑结构 | ✅ 已实现 |
 | 蓝图式连线 | 节点拖拽连接，支持包含/继承/引用/依赖关系 | ✅ 已实现 |
 | 实时同步 | 分屏模式脑图与脚本双向同步 | ✅ 已实现 |
 | 中文语法 | UTL语言原生支持中文关键字 | ✅ 已实现 |
@@ -249,14 +251,22 @@ export const checkOwnerPermission = (req, res, next) => {
 // 根据角色限制编辑操作
 const isViewer = userRole === 'viewer';
 
-// 查看者无法拖拽节点
-if (!isViewer && !nodeId.startsWith('parsed-') && mindmapId) {
+// 根据布局模式限制拖动
+const isConstrained = layoutMode === 'constrained';
+
+// 查看者或约束模式下无法拖拽节点
+if (!isViewer && !isConstrained && !nodeId.startsWith('parsed-') && mindmapId) {
   await api.put(`/nodes/${nodeId}`, { position });
 }
 
 // 查看者无法创建连线
 if (isViewer) {
   // 禁用连线创建功能
+}
+
+// 约束模式下新节点自动布局
+if (isConstrained) {
+  position = getNextAutoPosition();
 }
 ```
 
@@ -1258,6 +1268,7 @@ interface WorkspaceStore {
 // stores/editorStore.ts
 interface EditorStore {
   mode: 'mindmap' | 'script' | 'split';
+  layoutMode: 'free' | 'constrained';
   mindmapState: {
     canvas: CanvasState;
     selectedNodes: string[];
@@ -1274,6 +1285,7 @@ interface EditorStore {
     syncEnabled: boolean;
   };
   switchMode: (mode: EditorMode) => void;
+  setLayoutMode: (mode: 'free' | 'constrained') => void;
   syncFromMindmap: () => void;
   syncFromScript: () => void;
 }
