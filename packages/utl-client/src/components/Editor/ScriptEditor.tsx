@@ -55,6 +55,7 @@ export default function ScriptEditor() {
   const mindmapId = params.mindmapId;
   const isSplitMode = location.pathname.includes('/split');
   const initialContentLoaded = useRef(false);
+  const sessionKey = `utl-draft-${mindmapId}`;
 
   const generateUTL = (nodesData: typeof nodes, relationsData: typeof relations, name: string) => {
     let utl = `// UTL 测试脚本 - ${name}\n// ${new Date().toLocaleString()}\n\n`;
@@ -320,6 +321,8 @@ export default function ScriptEditor() {
       }
       
       lastSyncedContent.current = content;
+      sessionStorage.removeItem(sessionKey);
+      needsSync.current = false;
       message.success('已同步到脑图');
       await loadUTL();
     } catch (err) {
@@ -332,6 +335,16 @@ export default function ScriptEditor() {
 
   const loadUTL = useCallback(async () => {
     if (!mindmapId) return;
+    
+    const savedDraft = sessionStorage.getItem(sessionKey);
+    if (savedDraft) {
+      setContent(savedDraft);
+      lastSyncedContent.current = savedDraft;
+      setLoading(false);
+      initialContentLoaded.current = true;
+      return;
+    }
+    
     setLoading(true);
     try {
       const mindmapRes = await api.get(`/mindmaps/${mindmapId}`);
@@ -367,13 +380,13 @@ export default function ScriptEditor() {
     initialContentLoaded.current = true;
   }, [loadUTL]);
 
-  // 跟踪内容变化
   useEffect(() => {
     if (!isSplitMode && initialContentLoaded.current && content && content !== lastSyncedContent.current) {
       needsSync.current = true;
       pendingSyncContent.current = content;
+      sessionStorage.setItem(sessionKey, content);
     }
-  }, [isSplitMode, content]);
+  }, [isSplitMode, content, sessionKey]);
 
   // 离开时自动同步（警告提示）
   useEffect(() => {
@@ -433,6 +446,9 @@ export default function ScriptEditor() {
     setSaving(true);
     try {
       await api.put(`/mindmaps/${mindmapId}`, { utlSource: content });
+      sessionStorage.removeItem(sessionKey);
+      lastSyncedContent.current = content;
+      needsSync.current = false;
       message.success('脚本已保存');
     } catch {
       message.error('保存失败');
@@ -441,7 +457,11 @@ export default function ScriptEditor() {
     }
   };
 
-  const handleSyncFromMindmap = async () => { await loadUTL(); message.success('已从脑图同步'); };
+  const handleSyncFromMindmap = async () => {
+    sessionStorage.removeItem(sessionKey);
+    await loadUTL();
+    message.success('已从脑图同步');
+  };
   
   const handleExport = () => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
