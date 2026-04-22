@@ -26,8 +26,8 @@ interface EditorState {
   pan: { x: number; y: number };
 
   setMode: (mode: 'mindmap' | 'script' | 'split') => void;
-  setNodes: (nodes: Node[]) => void;
-  setRelations: (relations: Relation[]) => void;
+  setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void;
+  setRelations: (relations: Relation[] | ((prev: Relation[]) => Relation[])) => void;
   addNode: (node: Node) => void;
   updateNode: (id: string, changes: Partial<Node>) => void;
   removeNode: (id: string) => void;
@@ -47,9 +47,9 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   setMode: (mode) => set({ mode }),
 
-  setNodes: (nodes) => set({ nodes }),
+  setNodes: (nodes) => set((state) => ({ nodes: typeof nodes === 'function' ? nodes(state.nodes) : nodes })),
 
-  setRelations: (relations) => set({ relations }),
+  setRelations: (relations) => set((state) => ({ relations: typeof relations === 'function' ? relations(state.relations) : relations })),
 
   addNode: (node) => set((state) => ({ nodes: [...state.nodes, node] })),
 

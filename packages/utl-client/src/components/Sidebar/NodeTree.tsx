@@ -60,11 +60,13 @@ export default function NodeTree() {
         api.get(`/relations/mindmap/${mindmapId}`)
       ])
         .then(([nodesRes, relationsRes]) => {
-          setLocalNodes(nodesRes.data);
-          setLocalRelations(relationsRes.data);
-          setNodes(nodesRes.data);
-          setRelations(relationsRes.data);
-          setExpandedKeys(nodesRes.data.map((n: any) => n.id));
+          const nodesData = Array.isArray(nodesRes.data) ? nodesRes.data : [];
+          const relationsData = Array.isArray(relationsRes.data) ? relationsRes.data : [];
+          setLocalNodes(nodesData);
+          setLocalRelations(relationsData);
+          setNodes(nodesData);
+          setRelations(relationsData);
+          setExpandedKeys(nodesData.map((n: any) => n.id));
         })
         .catch(() => {
           setLocalNodes([]);

@@ -210,7 +210,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
         setHasDragged(true);
         const newX = e.clientX - dragOffset.x;
         const newY = e.clientY - dragOffset.y;
-        setNodes(nodes.map(n => n.id === draggedNode ? { ...n, x: newX, y: newY } : n));
+        setNodes(prev => prev.map(n => n.id === draggedNode ? { ...n, x: newX, y: newY } : n));
       }
     }
     
@@ -222,7 +222,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
         targetY: e.clientY - (rect?.top || 0),
       });
     }
-  }, [draggedNode, dragStartPos, dragOffset, nodes, setNodes, connectionDraft, quickEditNodeId, hasDragged]);
+  }, [draggedNode, dragStartPos, dragOffset, setNodes, connectionDraft, quickEditNodeId, hasDragged]);
 
   const handleMouseUp = async (e: React.MouseEvent) => {
     if (draggedNode && hasDragged) {
@@ -333,7 +333,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
         branchId: 'main',
       });
       const newNode = { ...response.data, x, y };
-      setNodes([...nodes, newNode]);
+      setNodes(prev => [...prev, newNode]);
       emitNodeCreate(newNode);
       message.success('节点已创建');
     } catch (error) {
@@ -359,7 +359,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     }
     try {
       await api.put(`/nodes/${quickEditNodeId}`, { name: quickEditValue.trim() });
-      setNodes(nodes.map(n => n.id === quickEditNodeId ? { ...n, name: quickEditValue.trim() } : n));
+      setNodes(prev => prev.map(n => n.id === quickEditNodeId ? { ...n, name: quickEditValue.trim() } : n));
       emitNodeUpdate(quickEditNodeId, { name: quickEditValue.trim() });
       message.success('节点名称已更新');
     } catch (error) {
@@ -413,8 +413,8 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
         await api.delete(`/nodes/${nodeId}`);
         emitNodeDelete(nodeId);
       }
-      setNodes(nodes.filter(n => !selectedNodes.includes(n.id)));
-      setRelations(relations.filter(r => !selectedNodes.includes(r.sourceId) && !selectedNodes.includes(r.targetId)));
+      setNodes(prev => prev.filter(n => !selectedNodes.includes(n.id)));
+      setRelations(prev => prev.filter(r => !selectedNodes.includes(r.sourceId) && !selectedNodes.includes(r.targetId)));
       message.success('节点已删除');
     } catch (error) {
       message.error('删除失败');
@@ -427,7 +427,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
       
       if (editingNode?.id) {
         await api.put(`/nodes/${editingNode.id}`, { name: values.name, description: values.description });
-        setNodes(nodes.map(n => n.id === editingNode.id ? { ...n, name: values.name, description: values.description } : n));
+        setNodes(prev => prev.map(n => n.id === editingNode.id ? { ...n, name: values.name, description: values.description } : n));
         emitNodeUpdate(editingNode.id, { name: values.name, description: values.description });
         message.success('节点已更新');
       } else {
@@ -442,7 +442,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
           branchId: 'main',
         });
         const newNode = { ...response.data, x: editingNode?.x || 100, y: editingNode?.y || 100 };
-        setNodes([...nodes, newNode]);
+        setNodes(prev => [...prev, newNode]);
         emitNodeCreate(newNode);
         message.success('节点已创建');
       }
@@ -488,6 +488,9 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
 
   const renderConnections = () => {
     const lines: JSX.Element[] = [];
+    
+    // 防御性检查：确保 nodes 和 relations 是数组
+    if (!Array.isArray(nodes) || !Array.isArray(relations)) return lines;
     
     relations.forEach(rel => {
       const source = nodes.find(n => n.id === rel.sourceId);
