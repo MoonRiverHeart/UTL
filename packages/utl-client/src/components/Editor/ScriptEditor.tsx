@@ -134,6 +134,8 @@ export default function ScriptEditor() {
           const tpChildren = relationsData.filter(r => r.sourceId === child.id && r.type === 'contains');
           for (const tcr of tpChildren) {
             const tc = nodesData.find(n => n.id === tcr.targetId);
+            if (tc?.type === 'action_factor') utl += `    动作因子 "${tc.name}"\n`;
+            if (tc?.type === 'data_factor') utl += `    数据因子 "${tc.name}"\n`;
             if (tc?.type === 'test_case') {
               utl += `    测试用例 "${tc.name}" {\n`;
               const tcChildren = relationsData.filter(r => r.sourceId === tc.id && r.type === 'contains');
