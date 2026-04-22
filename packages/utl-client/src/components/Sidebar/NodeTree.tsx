@@ -113,12 +113,19 @@ export default function NodeTree() {
     
     const rootNodes = nodes.filter(n => !hasParent.has(n.id));
     
-    const buildTreeNode = (node: { id: string; type: string; name: string }): TreeNodeData => {
+    const leafTypes = ['action_factor', 'data_factor', 'precondition', 'test_step', 'expected_result', 'attr', 'method'];
+    
+    const buildTreeNode = (node: { id: string; type: string; name: string }, parentType?: string): TreeNodeData | null => {
+      if (leafTypes.includes(node.type) && parentType !== 'test_case' && parentType !== 'attr' && parentType !== 'method') {
+        return null;
+      }
+      
       const childrenIds = childrenMap.get(node.id) || [];
       const children = childrenIds
         .map(cid => nodes.find(n => n.id === cid))
         .filter(Boolean)
-        .map(n => buildTreeNode(n!));
+        .map(n => buildTreeNode(n!, node.type))
+        .filter(Boolean) as TreeNodeData[];
       
       return {
         key: node.id,
@@ -171,7 +178,7 @@ export default function NodeTree() {
       };
     };
     
-    return rootNodes.map(n => buildTreeNode(n));
+    return rootNodes.map(n => buildTreeNode(n)).filter(Boolean) as TreeNodeData[];
   };
 
   const handleSelect = (selectedKeys: React.Key[]) => {

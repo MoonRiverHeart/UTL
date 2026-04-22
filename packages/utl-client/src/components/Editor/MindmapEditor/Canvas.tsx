@@ -147,7 +147,7 @@ export default function BlueprintEditor() {
     if (!socket) return;
 
     socket.on('node_updated', (data: { nodeId: string; changes: Record<string, unknown> }) => {
-      setNodes(nodes.map(n => n.id === data.nodeId ? { ...n, ...data.changes } : n));
+      setNodes(prev => prev.map(n => n.id === data.nodeId ? { ...n, ...data.changes } : n));
     });
 
     socket.on('node_created', (data: { node: NodeData }) => {
@@ -156,24 +156,20 @@ export default function BlueprintEditor() {
         x: (data.node.position as any)?.x ?? data.node.x ?? 100,
         y: (data.node.position as any)?.y ?? data.node.y ?? 100,
       };
-      if (!nodes.find(n => n.id === newNode.id)) {
-        setNodes([...nodes, newNode]);
-      }
+      setNodes(prev => prev.find(n => n.id === newNode.id) ? prev : [...prev, newNode]);
     });
 
     socket.on('node_deleted', (data: { nodeId: string }) => {
-      setNodes(nodes.filter(n => n.id !== data.nodeId));
-      setRelations(relations.filter(r => r.sourceId !== data.nodeId && r.targetId !== data.nodeId));
+      setNodes(prev => prev.filter(n => n.id !== data.nodeId));
+      setRelations(prev => prev.filter(r => r.sourceId !== data.nodeId && r.targetId !== data.nodeId));
     });
 
     socket.on('relation_created', (data: { relation: { id: string; sourceId: string; targetId: string; type: string } }) => {
-      if (!relations.find(r => r.id === data.relation.id)) {
-        setRelations([...relations, data.relation]);
-      }
+      setRelations(prev => prev.find(r => r.id === data.relation.id) ? prev : [...prev, data.relation]);
     });
 
     socket.on('relation_deleted', (data: { relationId: string }) => {
-      setRelations(relations.filter(r => r.id !== data.relationId));
+      setRelations(prev => prev.filter(r => r.id !== data.relationId));
     });
 
     return () => {
@@ -183,18 +179,19 @@ export default function BlueprintEditor() {
       socket.off('relation_created');
       socket.off('relation_deleted');
     };
-  }, [socket, nodes, relations, setNodes, setRelations]);
+  }, [socket, setNodes, setRelations]);
 
   const getNodeColor = (type: string) => NODE_TYPES.find(t => t.value === type)?.color || '#666';
   const getNodeAbbr = (type: string) => TYPE_ABBR[type] || type.slice(0, 2).toUpperCase();
 
 const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
-    if (isViewer) return;
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
     
-    // parsed-前缀的节点也可以拖动（分屏模式下的临时节点）
     selectNode(nodeId);
+    
+    if (isViewer) return;
+    
     setDraggedNode(nodeId);
     setDragStartPos({ x: e.clientX, y: e.clientY });
     setDragOffset({ x: e.clientX - node.x, y: e.clientY - node.y });
