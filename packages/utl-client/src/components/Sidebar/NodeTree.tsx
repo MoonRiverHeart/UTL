@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Tree, Tag, Empty, Spin, Typography, Button, Popconfirm, Space } from 'antd';
-import { FileOutlined, FolderOutlined, AppstoreOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Tree, Empty, Spin, Typography, Popconfirm } from 'antd';
+import { AppstoreOutlined } from '@ant-design/icons';
 import { useEditorStore } from '../../stores/editorStore';
 import { useParams } from 'react-router-dom';
 import api from '../../services/api';
@@ -9,33 +9,36 @@ import { message } from 'antd';
 const { Text } = Typography;
 
 const TYPE_COLORS: Record<string, string> = {
-  scenario: 'blue',
-  function: 'green',
-  test_point: 'gold',
-  action_factor: 'purple',
-  data_factor: 'pink',
-  test_case: 'cyan',
-  precondition: 'orange',
-  test_step: 'geekblue',
-  expected_result: 'red',
+  scenario: '#1890ff',
+  function: '#52c41a',
+  test_point: '#faad14',
+  attr: '#9c27b0',
+  method: '#00bcd4',
+  action_factor: '#722ed1',
+  data_factor: '#eb2f96',
+  test_case: '#13c2c2',
+  precondition: '#fa8c16',
+  test_step: '#2f54eb',
+  expected_result: '#f5222d',
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  scenario: '场景',
-  function: '功能',
-  test_point: '测试点',
-  action_factor: '动作因子',
-  data_factor: '数据因子',
-  test_case: '测试用例',
-  precondition: '预制条件',
-  test_step: '测试步骤',
-  expected_result: '预期结果',
+const TYPE_ABBR: Record<string, string> = {
+  scenario: 'SC',
+  function: 'FN',
+  test_point: 'TP',
+  attr: 'AT',
+  method: 'MT',
+  action_factor: 'AF',
+  data_factor: 'DF',
+  test_case: 'TC',
+  precondition: 'PC',
+  test_step: 'TS',
+  expected_result: 'ER',
 };
 
 interface TreeNodeData {
   key: string;
   title: JSX.Element;
-  icon: JSX.Element;
   children?: TreeNodeData[];
 }
 
@@ -45,6 +48,7 @@ export default function NodeTree() {
   const [nodes, setLocalNodes] = useState<{ id: string; type: string; name: string; description?: string; x: number; y: number }[]>([]);
   const [relations, setLocalRelations] = useState<{ id: string; sourceId: string; targetId: string; type: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
 
   const mindmapId = params.mindmapId;
 
@@ -60,6 +64,7 @@ export default function NodeTree() {
           setLocalRelations(relationsRes.data);
           setNodes(nodesRes.data);
           setRelations(relationsRes.data);
+          setExpandedKeys(nodesRes.data.map((n: any) => n.id));
         })
         .catch(() => {
           setLocalNodes([]);
@@ -118,37 +123,50 @@ export default function NodeTree() {
       return {
         key: node.id,
         title: (
-          <Space size={4} style={{ display: 'flex', alignItems: 'center' }}>
-            <Tag 
-              color={TYPE_COLORS[node.type] || 'default'} 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+            <span 
               style={{ 
-                margin: 0, 
-                fontSize: 10, 
-                borderRadius: 4,
-                minWidth: 48,
-                textAlign: 'center'
+                background: TYPE_COLORS[node.type] || '#666',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: 9,
+                minWidth: 18,
+                textAlign: 'center',
+                borderRadius: 3,
+                padding: '1px 3px'
               }}
             >
-              {TYPE_LABELS[node.type] || node.type}
-            </Tag>
-            <Text style={{ fontSize: 12, color: selectedNodes.includes(node.id) ? '#1890ff' : '#333' }}>
+              {TYPE_ABBR[node.type] || node.type.slice(0, 2).toUpperCase()}
+            </span>
+            <span style={{ 
+              color: selectedNodes.includes(node.id) ? '#1890ff' : '#333',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 120
+            }}>
               {node.name}
-            </Text>
+            </span>
             <Popconfirm 
               title="确定删除此节点？" 
               onConfirm={() => handleDeleteNode(node.id)}
               placement="right"
             >
-              <Button 
-                type="text" 
-                size="small" 
-                icon={<DeleteOutlined style={{ fontSize: 12, color: '#ff4d4f' }} />}
-                style={{ marginLeft: 4, padding: '0 4px', height: 20 }}
-              />
+              <span 
+                style={{ 
+                  marginLeft: 'auto',
+                  color: '#ff4d4f',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  opacity: 0.6
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                ✕
+              </span>
             </Popconfirm>
-          </Space>
+          </div>
         ),
-        icon: children.length > 0 ? <FolderOutlined style={{ color: '#1890ff' }} /> : <FileOutlined style={{ color: '#666' }} />,
         children: children.length > 0 ? children : undefined,
       };
     };
@@ -185,7 +203,7 @@ export default function NodeTree() {
     return (
       <div style={{ padding: '24px 16px' }}>
         <Empty 
-          image={<FolderOutlined style={{ fontSize: 40, color: '#bfbfbf' }} />}
+          image={<AppstoreOutlined style={{ fontSize: 40, color: '#bfbfbf' }} />}
           description={<Text type="secondary">暂无节点，请添加</Text>}
         />
       </div>
@@ -193,26 +211,30 @@ export default function NodeTree() {
   }
 
   return (
-    <div style={{ padding: '8px 0' }}>
+    <div>
       <div style={{ 
-        padding: '8px 16px', 
+        padding: '8px 12px', 
         fontWeight: 600, 
         color: '#722ed1', 
-        fontSize: 13,
+        fontSize: 12,
         borderBottom: '1px solid #f0f0f0',
-        marginBottom: 4
+        background: '#fafafa'
       }}>
-        <AppstoreOutlined style={{ marginRight: 8 }} />
+        <AppstoreOutlined style={{ marginRight: 6, fontSize: 12 }} />
         节点树 ({nodes.length})
       </div>
       <Tree
-        showIcon
         showLine={{ showLeafIcon: false }}
-        defaultExpandAll
+        expandedKeys={expandedKeys}
+        onExpand={setExpandedKeys}
         selectedKeys={selectedNodes}
         treeData={buildTree()}
         onSelect={handleSelect}
-        style={{ fontSize: 12, padding: '8px 12px' }}
+        style={{ 
+          fontSize: 11, 
+          padding: '4px 8px',
+          background: '#fff'
+        }}
       />
     </div>
   );

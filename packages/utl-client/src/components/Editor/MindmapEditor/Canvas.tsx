@@ -7,6 +7,20 @@ import { useEditorStore } from '../../../stores/editorStore';
 import { useSocketStore } from '../../../stores/socketStore';
 import api from '../../../services/api';
 
+const TYPE_ABBR: Record<string, string> = {
+  scenario: 'SC',
+  function: 'FN',
+  test_point: 'TP',
+  attr: 'AT',
+  method: 'MT',
+  action_factor: 'AF',
+  data_factor: 'DF',
+  test_case: 'TC',
+  precondition: 'PC',
+  test_step: 'TS',
+  expected_result: 'ER',
+};
+
 const NODE_TYPES = [
   { value: 'scenario', label: '场景', color: '#1890ff' },
   { value: 'function', label: '功能', color: '#52c41a' },
@@ -28,8 +42,8 @@ const RELATION_TYPES = [
   { value: 'depends_on', label: '依赖' },
 ];
 
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 60;
+const NODE_WIDTH = 120;
+const NODE_HEIGHT = 36;
 
 interface NodeData {
   id: string;
@@ -172,7 +186,7 @@ export default function BlueprintEditor() {
   }, [socket, nodes, relations, setNodes, setRelations]);
 
   const getNodeColor = (type: string) => NODE_TYPES.find(t => t.value === type)?.color || '#666';
-  const getNodeLabel = (type: string) => NODE_TYPES.find(t => t.value === type)?.label || type;
+  const getNodeAbbr = (type: string) => TYPE_ABBR[type] || type.slice(0, 2).toUpperCase();
 
 const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     if (isViewer) return;
@@ -646,28 +660,43 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
                   onClick={(e) => handleNodeClick(e, node.id)}
                   onDoubleClick={(e) => { e.stopPropagation(); handleQuickEditStart(node.id); }}
                 >
-                  <div style={{ padding: '10px 14px', cursor: hasDragged ? 'grab' : 'text' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <Tag color={color} style={{ borderRadius: 4, fontSize: 11, margin: 0 }}>{getNodeLabel(node.type)}</Tag>
-                      {node.description && !isQuickEditing && (
-                        <span style={{ fontSize: 11, color: '#888', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.description}</span>
-                      )}
-                    </div>
-                    {isQuickEditing ? (
-                      <Input
-                        size="small"
-                        value={quickEditValue}
-                        onChange={(e) => setQuickEditValue(e.target.value)}
-                        onPressEnter={() => handleQuickEditSave()}
-                        onBlur={() => handleQuickEditSave()}
-                        autoFocus
-                        style={{ fontWeight: 600, fontSize: 14, borderRadius: 4 }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <div style={{ fontWeight: 600, fontSize: 14, color: '#333' }}>{node.name}</div>
-                    )}
-                  </div>
+<div style={{ padding: '6px 8px', cursor: hasDragged ? 'grab' : 'text' }}>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                       <span 
+                         style={{ 
+                           background: color, 
+                           color: '#fff',
+                           fontWeight: 700, 
+                           fontSize: 9,
+                           minWidth: 18,
+                           textAlign: 'center',
+                           borderRadius: 3,
+                           padding: '2px 4px'
+                         }}
+                       >
+                         {getNodeAbbr(node.type)}
+                       </span>
+                       {isQuickEditing ? (
+                         <Input
+                           size="small"
+                           value={quickEditValue}
+                           onChange={(e) => setQuickEditValue(e.target.value)}
+                           onPressEnter={() => handleQuickEditSave()}
+                           onBlur={() => handleQuickEditSave()}
+                           autoFocus
+                           style={{ fontWeight: 600, fontSize: 12, borderRadius: 4, flex: 1 }}
+                           onClick={(e) => e.stopPropagation()}
+                         />
+                       ) : (
+                         <>
+                           <span style={{ fontWeight: 600, fontSize: 12, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{node.name}</span>
+                           {node.description && (
+                             <span style={{ fontSize: 10, color: '#888', maxWidth: 40, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>…</span>
+                           )}
+                         </>
+                       )}
+                     </div>
+                   </div>
                   {!isViewer && (
                     <div 
                       style={{ 

@@ -266,14 +266,18 @@ export default function Layout() {
         style={{ 
           borderRight: '1px solid #d9d9d9',
           background: '#fff',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.05)'
+          boxShadow: '2px 0 8px rgba(0,0,0,0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
         }}
       >
         <div style={{ 
           padding: '16px 12px', 
           borderBottom: '1px solid #f0f0f0',
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          marginBottom: 0
+          marginBottom: 0,
+          flexShrink: 0
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AppstoreOutlined style={{ fontSize: 24, color: '#fff', marginRight: 8 }} />
@@ -281,7 +285,7 @@ export default function Layout() {
           </div>
         </div>
 
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', flexShrink: 0 }}>
           <Dropdown menu={{ items: userMenuItems }} placement="bottomLeft">
             <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '8px 12px', background: '#f5f5f5', borderRadius: 8 }}>
               <Avatar size="small" icon={<UserOutlined />} style={{ background: '#1890ff', marginRight: 8 }} />
@@ -291,92 +295,98 @@ export default function Layout() {
           </Dropdown>
         </div>
 
-        <div style={{ padding: '12px 16px' }}>
-          <div style={{ marginBottom: 8, fontWeight: 600, color: '#1890ff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span><FolderOutlined style={{ marginRight: 8 }} />工作区</span>
-          </div>
-          {workspaces.map(w => (
-            <div 
-              key={w.id} 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                padding: '6px 12px', 
-                marginBottom: 4,
-                background: currentWorkspace?.id === w.id ? '#e6f7ff' : '#f5f5f5',
-                borderRadius: 6,
-                cursor: 'pointer'
-              }}
-              onClick={() => handleWorkspaceChange(w.id)}
-            >
-              <span style={{ flex: 1, fontWeight: currentWorkspace?.id === w.id ? 500 : 400 }}>
-                {w.name}
-              </span>
-              {(w as any).role === 'owner' && <Tag color="gold" icon={<CrownOutlined />} style={{ marginRight: 4, fontSize: 10 }}>所有者</Tag>}
-              {(w as any).role === 'editor' && <Tag color="green" style={{ marginRight: 4, fontSize: 10 }}>编辑者</Tag>}
-              {(w as any).role === 'viewer' && <Tag color="blue" style={{ marginRight: 4, fontSize: 10 }}>查看者</Tag>}
-              <Dropdown menu={{ items: getWorkspaceMenuItems(w as any) }} trigger={['click']}>
-                <Button type="text" size="small" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
-              </Dropdown>
+        <div style={{ 
+          flex: 1, 
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}>
+          <div style={{ padding: '12px 16px' }}>
+            <div style={{ marginBottom: 8, fontWeight: 600, color: '#1890ff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span><FolderOutlined style={{ marginRight: 8 }} />工作区</span>
             </div>
-          ))}
-          <Button 
-            type="primary"
-            icon={<PlusOutlined />} 
-            onClick={handleCreateWorkspace} 
-            block 
-            size="small"
-            style={{ marginTop: 8, borderRadius: 6 }}
-          >
-            新建工作区
-          </Button>
-        </div>
-
-        {currentWorkspace && (
-          <>
-            <Divider style={{ margin: '8px 16px', borderColor: '#e8e8e8' }} />
-            <div style={{ padding: '12px 16px' }}>
-              <div style={{ marginBottom: 8, fontWeight: 600, color: '#52c41a', fontSize: 13 }}>
-                <FileOutlined style={{ marginRight: 8 }} />
-                脑图
-              </div>
-              {mindmaps.map(m => (
-                <div 
-                  key={m.id} 
-                  style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: '6px 12px', 
-                    marginBottom: 4,
-                    background: currentMindmap?.id === m.id ? '#f6ffed' : '#f5f5f5',
-                    borderRadius: 6,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleMindmapChange(m.id)}
-                >
-                  <span style={{ flex: 1, fontWeight: currentMindmap?.id === m.id ? 500 : 400 }}>{m.name}</span>
-                  <Dropdown menu={{ items: getMindmapMenuItems(m) }} trigger={['click']}>
-                    <Button type="text" size="small" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
-                  </Dropdown>
-                </div>
-              ))}
-              <Button 
-                type="default"
-                icon={<PlusOutlined />} 
-                onClick={handleCreateMindmap} 
-                block 
-                size="small"
-                style={{ marginTop: 8, borderRadius: 6, borderColor: '#52c41a', color: '#52c41a' }}
+            {workspaces.map(w => (
+              <div 
+                key={w.id} 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  padding: '6px 12px', 
+                  marginBottom: 4,
+                  background: currentWorkspace?.id === w.id ? '#e6f7ff' : '#f5f5f5',
+                  borderRadius: 6,
+                  cursor: 'pointer'
+                }}
+                onClick={() => handleWorkspaceChange(w.id)}
               >
-                新建脑图
-              </Button>
-            </div>
-            <Divider style={{ margin: '8px 16px', borderColor: '#e8e8e8' }} />
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <NodeTree />
-            </div>
-          </>
-        )}
+                <span style={{ flex: 1, fontWeight: currentWorkspace?.id === w.id ? 500 : 400 }}>
+                  {w.name}
+                </span>
+                {(w as any).role === 'owner' && <Tag color="gold" icon={<CrownOutlined />} style={{ marginRight: 4, fontSize: 10 }}>所有者</Tag>}
+                {(w as any).role === 'editor' && <Tag color="green" style={{ marginRight: 4, fontSize: 10 }}>编辑者</Tag>}
+                {(w as any).role === 'viewer' && <Tag color="blue" style={{ marginRight: 4, fontSize: 10 }}>查看者</Tag>}
+                <Dropdown menu={{ items: getWorkspaceMenuItems(w as any) }} trigger={['click']}>
+                  <Button type="text" size="small" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
+                </Dropdown>
+              </div>
+            ))}
+            <Button 
+              type="primary"
+              icon={<PlusOutlined />} 
+              onClick={handleCreateWorkspace} 
+              block 
+              size="small"
+              style={{ marginTop: 8, borderRadius: 6 }}
+            >
+              新建工作区
+            </Button>
+          </div>
+
+          {currentWorkspace && (
+            <>
+              <Divider style={{ margin: '8px 16px', borderColor: '#e8e8e8' }} />
+              <div style={{ padding: '12px 16px' }}>
+                <div style={{ marginBottom: 8, fontWeight: 600, color: '#52c41a', fontSize: 13 }}>
+                  <FileOutlined style={{ marginRight: 8 }} />
+                  脑图
+                </div>
+                {mindmaps.map(m => (
+                  <div 
+                    key={m.id} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      padding: '6px 12px', 
+                      marginBottom: 4,
+                      background: currentMindmap?.id === m.id ? '#f6ffed' : '#f5f5f5',
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleMindmapChange(m.id)}
+                  >
+                    <span style={{ flex: 1, fontWeight: currentMindmap?.id === m.id ? 500 : 400 }}>{m.name}</span>
+                    <Dropdown menu={{ items: getMindmapMenuItems(m) }} trigger={['click']}>
+                      <Button type="text" size="small" icon={<MoreOutlined />} onClick={(e) => e.stopPropagation()} />
+                    </Dropdown>
+                  </div>
+                ))}
+                <Button 
+                  type="default"
+                  icon={<PlusOutlined />} 
+                  onClick={handleCreateMindmap} 
+                  block 
+                  size="small"
+                  style={{ marginTop: 8, borderRadius: 6, borderColor: '#52c41a', color: '#52c41a' }}
+                >
+                  新建脑图
+                </Button>
+              </div>
+              <Divider style={{ margin: '8px 16px', borderColor: '#e8e8e8' }} />
+              <div style={{ minHeight: 0 }}>
+                <NodeTree />
+              </div>
+            </>
+          )}
+        </div>
       </Sider>
 
       <Content style={{ display: 'flex', flexDirection: 'column', background: '#fafbfc' }}>

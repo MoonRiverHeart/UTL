@@ -136,55 +136,98 @@ export default function ScriptEditor() {
           utl += `  测试点 "${child.name}" {\n`;
           const tpChildren = relationsData.filter(r => r.sourceId === child.id && r.type === 'contains');
           
-          const attrFactors = tpChildren.filter(tcr => {
+          const attrNodes = tpChildren.filter(tcr => {
             const tc = nodesData.find(n => n.id === tcr.targetId);
-            return tc?.type === 'action_factor' || tc?.type === 'data_factor';
+            return tc?.type === 'attr';
           });
           
-          if (attrFactors.length > 0) {
+          if (attrNodes.length > 0) {
             utl += `    属性 {\n`;
-            for (const tcr of attrFactors) {
-              const tc = nodesData.find(n => n.id === tcr.targetId);
-              if (tc?.type === 'action_factor') utl += `      动作因子 "${tc.name}"\n`;
-              if (tc?.type === 'data_factor') utl += `      数据因子 "${tc.name}"\n`;
+            for (const attrRel of attrNodes) {
+              const attrNode = nodesData.find(n => n.id === attrRel.targetId);
+              if (attrNode) {
+                const attrChildren = relationsData.filter(r => r.sourceId === attrNode.id && r.type === 'contains');
+                for (const acr of attrChildren) {
+                  const ac = nodesData.find(n => n.id === acr.targetId);
+                  if (ac?.type === 'action_factor') utl += `      动作因子 "${ac.name}"\n`;
+                  if (ac?.type === 'data_factor') utl += `      数据因子 "${ac.name}"\n`;
+                }
+              }
             }
             utl += `    }\n`;
-          }
-          
-          const testCases = tpChildren.filter(tcr => {
-            const tc = nodesData.find(n => n.id === tcr.targetId);
-            return tc?.type === 'test_case';
-          });
-          
-          for (const tcr of testCases) {
-            const tc = nodesData.find(n => n.id === tcr.targetId);
-            if (tc) {
-              utl += `    方法 "${tc.name}" {\n`;
-              const tcChildren = relationsData.filter(r => r.sourceId === tc.id && r.type === 'contains');
-              for (const ccr of tcChildren) {
-                const c = nodesData.find(n => n.id === ccr.targetId);
-                if (c?.type === 'precondition') utl += `      预制条件 "${c.name}"\n`;
-                if (c?.type === 'test_step') utl += `      测试步骤 "${c.name}"\n`;
-                if (c?.type === 'expected_result') utl += `      预期结果 "${c.name}"\n`;
+          } else {
+            const attrFactors = tpChildren.filter(tcr => {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              return tc?.type === 'action_factor' || tc?.type === 'data_factor';
+            });
+            
+            if (attrFactors.length > 0) {
+              utl += `    属性 {\n`;
+              for (const tcr of attrFactors) {
+                const tc = nodesData.find(n => n.id === tcr.targetId);
+                if (tc?.type === 'action_factor') utl += `      动作因子 "${tc.name}"\n`;
+                if (tc?.type === 'data_factor') utl += `      数据因子 "${tc.name}"\n`;
               }
               utl += `    }\n`;
             }
           }
           
-          const otherChildren = tpChildren.filter(tcr => {
+          const methodNodes = tpChildren.filter(tcr => {
             const tc = nodesData.find(n => n.id === tcr.targetId);
-            return tc?.type === 'precondition' || tc?.type === 'test_step' || tc?.type === 'expected_result';
+            return tc?.type === 'method';
           });
           
-          if (otherChildren.length > 0) {
-            utl += `    方法 "默认测试" {\n`;
-            for (const tcr of otherChildren) {
-              const tc = nodesData.find(n => n.id === tcr.targetId);
-              if (tc?.type === 'precondition') utl += `      预制条件 "${tc.name}"\n`;
-              if (tc?.type === 'test_step') utl += `      测试步骤 "${tc.name}"\n`;
-              if (tc?.type === 'expected_result') utl += `      预期结果 "${tc.name}"\n`;
+          if (methodNodes.length > 0) {
+            for (const methodRel of methodNodes) {
+              const methodNode = nodesData.find(n => n.id === methodRel.targetId);
+              if (methodNode) {
+                utl += `    方法 "${methodNode.name}" {\n`;
+                const methodChildren = relationsData.filter(r => r.sourceId === methodNode.id && r.type === 'contains');
+                for (const mcr of methodChildren) {
+                  const mc = nodesData.find(n => n.id === mcr.targetId);
+                  if (mc?.type === 'precondition') utl += `      预制条件 "${mc.name}"\n`;
+                  if (mc?.type === 'test_step') utl += `      测试步骤 "${mc.name}"\n`;
+                  if (mc?.type === 'expected_result') utl += `      预期结果 "${mc.name}"\n`;
+                }
+                utl += `    }\n`;
+              }
             }
-            utl += `    }\n`;
+          } else {
+            const testCases = tpChildren.filter(tcr => {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              return tc?.type === 'test_case';
+            });
+            
+            for (const tcr of testCases) {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              if (tc) {
+                utl += `    方法 "${tc.name}" {\n`;
+                const tcChildren = relationsData.filter(r => r.sourceId === tc.id && r.type === 'contains');
+                for (const ccr of tcChildren) {
+                  const c = nodesData.find(n => n.id === ccr.targetId);
+                  if (c?.type === 'precondition') utl += `      预制条件 "${c.name}"\n`;
+                  if (c?.type === 'test_step') utl += `      测试步骤 "${c.name}"\n`;
+                  if (c?.type === 'expected_result') utl += `      预期结果 "${c.name}"\n`;
+                }
+                utl += `    }\n`;
+              }
+            }
+            
+            const otherChildren = tpChildren.filter(tcr => {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              return tc?.type === 'precondition' || tc?.type === 'test_step' || tc?.type === 'expected_result';
+            });
+            
+            if (otherChildren.length > 0) {
+              utl += `    方法 "默认测试" {\n`;
+              for (const tcr of otherChildren) {
+                const tc = nodesData.find(n => n.id === tcr.targetId);
+                if (tc?.type === 'precondition') utl += `      预制条件 "${tc.name}"\n`;
+                if (tc?.type === 'test_step') utl += `      测试步骤 "${tc.name}"\n`;
+                if (tc?.type === 'expected_result') utl += `      预期结果 "${tc.name}"\n`;
+              }
+              utl += `    }\n`;
+            }
           }
           
           utl += `  }\n`;
@@ -463,15 +506,25 @@ export default function ScriptEditor() {
       debounceTimer.current = setTimeout(() => {
         const parsed = parseUTLToNodes(content);
         if (parsed.nodes.length > 0) {
-          const mappedNodes = parsed.nodes.map((n, i) => ({
-            id: `parsed-${i}`,
-            type: n.type,
-            name: n.name,
-            description: n.description || '',
-            x: 100 + Math.floor(i / 5) * 180,
-            y: 100 + (i % 5) * 80,
-            metadata: {},
-          }));
+          const existingPositions = new Map<string, { x: number; y: number }>();
+          nodes.forEach(n => {
+            if (!n.id.startsWith('parsed-')) {
+              existingPositions.set(n.name, { x: n.x, y: n.y });
+            }
+          });
+          
+          const mappedNodes = parsed.nodes.map((n, i) => {
+            const existingPos = existingPositions.get(n.name);
+            return {
+              id: `parsed-${i}`,
+              type: n.type,
+              name: n.name,
+              description: n.description || '',
+              x: existingPos?.x ?? (100 + Math.floor(i / 5) * 180),
+              y: existingPos?.y ?? (100 + (i % 5) * 80),
+              metadata: {},
+            };
+          });
           const mappedRelations = parsed.relations.map((r, i) => ({
             id: `parsed-rel-${i}`,
             sourceId: r.source,
