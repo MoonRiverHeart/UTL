@@ -19,6 +19,7 @@ interface Relation {
 
 interface EditorState {
   mode: 'mindmap' | 'script' | 'split';
+  layoutMode: 'free' | 'constrained';
   nodes: Node[];
   relations: Relation[];
   selectedNodes: string[];
@@ -26,6 +27,7 @@ interface EditorState {
   pan: { x: number; y: number };
 
   setMode: (mode: 'mindmap' | 'script' | 'split') => void;
+  setLayoutMode: (layoutMode: 'free' | 'constrained') => void;
   setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void;
   setRelations: (relations: Relation[] | ((prev: Relation[]) => Relation[])) => void;
   addNode: (node: Node) => void;
@@ -39,6 +41,7 @@ interface EditorState {
 
 export const useEditorStore = create<EditorState>((set) => ({
   mode: 'mindmap',
+  layoutMode: 'free',
   nodes: [],
   relations: [],
   selectedNodes: [],
@@ -46,6 +49,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   pan: { x: 0, y: 0 },
 
   setMode: (mode) => set({ mode }),
+
+  setLayoutMode: (layoutMode) => set({ layoutMode }),
 
   setNodes: (nodes) => set((state) => ({ nodes: typeof nodes === 'function' ? nodes(state.nodes) : nodes })),
 

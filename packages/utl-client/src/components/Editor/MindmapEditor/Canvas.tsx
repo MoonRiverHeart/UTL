@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Button, Input, Drawer, Form, Space, Tag, message, Modal, Dropdown, Popconfirm, Select } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, EditOutlined, LockOutlined, AppstoreOutlined, BorderOutlined } from '@ant-design/icons';
 import { useWorkspaceStore } from '../../../stores/workspaceStore';
 import { useEditorStore } from '../../../stores/editorStore';
 import { useSocketStore } from '../../../stores/socketStore';
@@ -75,7 +75,7 @@ export default function BlueprintEditor() {
   const params = useParams();
   const location = useLocation();
   const { currentMindmap, userRole } = useWorkspaceStore();
-  const { nodes, setNodes, relations, setRelations, selectedNodes, selectNode, clearSelection } = useEditorStore();
+  const { nodes, setNodes, relations, setRelations, selectedNodes, selectNode, clearSelection, layoutMode, setLayoutMode } = useEditorStore();
   const { connect, disconnect, emitNodeUpdate, emitNodeCreate, emitNodeDelete, emitRelationCreate, emitRelationDelete, emitBranchCheckout, socket, onlineUsers, connected } = useSocketStore();
   
   const isViewer = userRole === 'viewer';
@@ -191,6 +191,7 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     selectNode(nodeId);
     
     if (isViewer) return;
+    if (layoutMode === 'constrained') return;
     
     setDraggedNode(nodeId);
     setDragStartPos({ x: e.clientX, y: e.clientY });
@@ -311,15 +312,124 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     setConnectionDraft(null);
   };
 
+  const calculateAutoLayout = useCallback(() => {
+    if (!Array.isArray(nodes) || nodes.length === 0) return;
+    
+    const HORIZONTAL_GAP = 160;
+    const VERTICAL_GAP = 60;
+    const START_X = 50;
+    const START_Y = 50;
+    
+    const childMap: Map<string, string[]> = new Map();
+    const parentMap: Map<string, string> = new Map();
+    
+    relations.forEach(rel => {
+      if (rel.type === 'contains') {
+        if (!childMap.has(rel.sourceId)) childMap.set(rel.sourceId, []);
+        childMap.get(rel.sourceId)!.push(rel.targetId);
+        parentMap.set(rel.targetId, rel.sourceId);
+      }
+    });
+    
+    const rootNodes = nodes.filter(n => !parentMap.has(n.id));
+    
+    const positionMap: Map<string, { x: number; y: number }> = new Map();
+    
+    let currentX = START_X;
+    
+    const layoutNode = (nodeId: string, depth: number, startX: number): number => {
+      const children = childMap.get(nodeId) || [];
+      const nodeWidth = NODE_WIDTH;
+      
+      if (children.length === 0) {
+        positionMap.set(nodeId, { x: startX, y: START_Y + depth * VERTICAL_GAP });
+        return startX + nodeWidth + HORIZONTAL_GAP;
+      }
+      
+      let childStartX = startX;
+      children.forEach(childId => {
+        childStartX = layoutNode(childId, depth + 1, childStartX);
+      });
+      
+      const firstChildPos = positionMap.get(children[0]);
+      const lastChildPos = positionMap.get(children[children.length - 1]);
+      
+      if (firstChildPos && lastChildPos) {
+        const centerX = (firstChildPos.x + lastChildPos.x + NODE_WIDTH) / 2 - NODE_WIDTH / 2;
+        positionMap.set(nodeId, { x: centerX, y: START_Y + depth * VERTICAL_GAP });
+      } else {
+        positionMap.set(nodeId, { x: startX, y: START_Y + depth * VERTICAL_GAP });
+      }
+      
+      return childStartX;
+    };
+    
+    rootNodes.forEach(rootNode => {
+      currentX = layoutNode(rootNode.id, 0, currentX);
+    });
+    
+    nodes.forEach(node => {
+      if (!positionMap.has(node.id)) {
+        positionMap.set(node.id, { x: currentX, y: START_Y });
+        currentX += NODE_WIDTH + HORIZONTAL_GAP;
+      }
+    });
+    
+    const updatedNodes = nodes.map(node => {
+      const pos = positionMap.get(node.id);
+      if (pos) {
+        return { ...node, x: pos.x, y: pos.y };
+      }
+      return node;
+    });
+    
+    setNodes(updatedNodes);
+    
+    updatedNodes.forEach(node => {
+      if (!node.id.startsWith('parsed-') && mindmapId) {
+        api.put(`/nodes/${node.id}`, { position: { x: node.x, y: node.y } });
+        emitNodeUpdate(node.id, { x: node.x, y: node.y });
+      }
+    });
+  }, [nodes, relations, setNodes, mindmapId, emitNodeUpdate]);
+
+  const getNextAutoPosition = useCallback(() => {
+    const HORIZONTAL_GAP = 160;
+    const VERTICAL_GAP = 60;
+    const START_X = 50;
+    const START_Y = 50;
+    
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return { x: START_X, y: START_Y };
+    }
+    
+    const maxY = Math.max(...nodes.map(n => n.y));
+    const nodesAtMaxY = nodes.filter(n => n.y === maxY);
+    const maxXAtMaxY = Math.max(...nodesAtMaxY.map(n => n.x));
+    
+    if (nodesAtMaxY.length < 4) {
+      return { x: maxXAtMaxY + HORIZONTAL_GAP, y: maxY };
+    }
+    
+    return { x: START_X, y: maxY + VERTICAL_GAP };
+  }, [nodes]);
+
   const handleQuickNodeCreate = async (type: string) => {
     if (!mindmapId) {
       message.warning('请先选择脑图');
       return;
     }
     
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const x = Math.max(50, (rect?.width || 400) / 2 - 80 + Math.random() * 100);
-    const y = Math.max(50, (rect?.height || 300) / 2 - 30 + Math.random() * 100);
+    let x: number, y: number;
+    if (layoutMode === 'constrained') {
+      const autoPos = getNextAutoPosition();
+      x = autoPos.x;
+      y = autoPos.y;
+    } else {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      x = Math.max(50, (rect?.width || 400) / 2 - 80 + Math.random() * 100);
+      y = Math.max(50, (rect?.height || 300) / 2 - 30 + Math.random() * 100);
+    }
     
     try {
       const response = await api.post(`/nodes/mindmap/${mindmapId}`, {
@@ -377,13 +487,24 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     }
     
     form.resetFields();
+    
+    let x: number, y: number;
+    if (layoutMode === 'constrained') {
+      const autoPos = getNextAutoPosition();
+      x = autoPos.x;
+      y = autoPos.y;
+    } else {
+      x = 100 + Math.random() * 200;
+      y = 100 + Math.random() * 200;
+    }
+    
     setEditingNode({
       id: '',
       type: 'test_case',
       name: '',
       description: '',
-      x: 100 + Math.random() * 200,
-      y: 100 + Math.random() * 200,
+      x,
+      y,
     });
     setDrawerOpen(true);
   };
@@ -416,6 +537,10 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
       setNodes(prev => prev.filter(n => !selectedNodes.includes(n.id)));
       setRelations(prev => prev.filter(r => !selectedNodes.includes(r.sourceId) && !selectedNodes.includes(r.targetId)));
       message.success('节点已删除');
+      
+      if (layoutMode === 'constrained') {
+        setTimeout(() => calculateAutoLayout(), 100);
+      }
     } catch (error) {
       message.error('删除失败');
     }
@@ -486,10 +611,40 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     }
   };
 
+  const getBezierPath = (sx: number, sy: number, tx: number, ty: number): string => {
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const curvature = Math.min(Math.max(distance * 0.3, 40), 120);
+    
+    const cp1x = sx + curvature;
+    const cp1y = sy;
+    const cp2x = tx - curvature;
+    const cp2y = ty;
+    
+    return `M ${sx} ${sy} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tx} ${ty}`;
+  };
+
+  const getBezierMidpoint = (sx: number, sy: number, tx: number, ty: number): { x: number; y: number } => {
+    const dx = tx - sx;
+    const distance = Math.sqrt(dx * dx + (ty - sy) * (ty - sy));
+    const curvature = Math.min(Math.max(distance * 0.3, 40), 120);
+    
+    const cp1x = sx + curvature;
+    const cp1y = sy;
+    const cp2x = tx - curvature;
+    const cp2y = ty;
+    
+    const t = 0.5;
+    const x = Math.pow(1-t, 3) * sx + 3 * Math.pow(1-t, 2) * t * cp1x + 3 * (1-t) * Math.pow(t, 2) * cp2x + Math.pow(t, 3) * tx;
+    const y = Math.pow(1-t, 3) * sy + 3 * Math.pow(1-t, 2) * t * cp1y + 3 * (1-t) * Math.pow(t, 2) * cp2y + Math.pow(t, 3) * ty;
+    
+    return { x, y };
+  };
+
   const renderConnections = () => {
     const lines: JSX.Element[] = [];
     
-    // 防御性检查：确保 nodes 和 relations 是数组
     if (!Array.isArray(nodes) || !Array.isArray(relations)) return lines;
     
     relations.forEach(rel => {
@@ -497,7 +652,6 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
       const target = nodes.find(n => n.id === rel.targetId);
       if (!source || !target) return;
       
-      // 安全检查：确保位置有效
       const sourceX = Number.isFinite(source.x) ? source.x : 100;
       const sourceY = Number.isFinite(source.y) ? source.y : 100;
       const targetX = Number.isFinite(target.x) ? target.x : 100;
@@ -508,19 +662,18 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
       const tx = targetX;
       const ty = targetY + NODE_HEIGHT / 2;
       
-      const midX = (sx + tx) / 2;
-      const midY = (sy + ty) / 2;
+      const path = getBezierPath(sx, sy, tx, ty);
+      const mid = getBezierMidpoint(sx, sy, tx, ty);
       
       lines.push(
         <g key={rel.id}>
-          <line
-            x1={sx}
-            y1={sy}
-            x2={tx}
-            y2={ty}
+          <path
+            d={path}
             stroke="#1890ff"
             strokeWidth={2}
             strokeOpacity={0.8}
+            fill="none"
+            markerEnd="url(#arrowhead)"
           />
           <g 
             className="relation-badge"
@@ -528,8 +681,8 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
             onClick={(e) => handleRelationClick(e, rel as EditingRelationState)}
           >
             <rect 
-              x={midX - 15} 
-              y={midY - 12} 
+              x={mid.x - 15} 
+              y={mid.y - 12} 
               width={30} 
               height={24} 
               rx={4}
@@ -538,8 +691,8 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
               strokeWidth={1}
             />
             <text 
-              x={midX} 
-              y={midY + 4} 
+              x={mid.x} 
+              y={mid.y + 4} 
               fontSize={11} 
               fill="#fff" 
               textAnchor="middle"
@@ -553,16 +706,16 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     });
     
     if (connectionDraft) {
+      const path = getBezierPath(connectionDraft.sourceX, connectionDraft.sourceY, connectionDraft.targetX, connectionDraft.targetY);
       lines.push(
-        <line 
+        <path 
           key="draft" 
-          x1={connectionDraft.sourceX} 
-          y1={connectionDraft.sourceY} 
-          x2={connectionDraft.targetX} 
-          y2={connectionDraft.targetY} 
+          d={path}
           stroke="#52c41a" 
           strokeWidth={2} 
           strokeDasharray="8,4"
+          fill="none"
+          markerEnd="url(#arrowhead-draft)"
         />
       );
     }
@@ -597,6 +750,14 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
           <Popconfirm title="确定删除选中的节点？" onConfirm={handleDeleteNode}>
             <Button icon={<DeleteOutlined />} danger disabled={selectedNodes.length === 0 || isViewer} style={{ borderRadius: 6 }}>删除</Button>
           </Popconfirm>
+          <Button 
+            icon={layoutMode === 'constrained' ? <AppstoreOutlined /> : <BorderOutlined />} 
+            onClick={() => setLayoutMode(layoutMode === 'free' ? 'constrained' : 'free')}
+            style={{ borderRadius: 6 }}
+            type={layoutMode === 'constrained' ? 'primary' : 'default'}
+          >
+            {layoutMode === 'constrained' ? '约束布局' : '自由布局'}
+          </Button>
         </Space>
         <Space>
           <Tag color="blue" style={{ borderRadius: 6 }}>{currentMindmap?.name || '未选择'}</Tag>
@@ -626,6 +787,30 @@ const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
         ) : (
           <>
             <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: connectionDraft ? 'none' : 'auto' }}>
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto"
+                  markerUnits="strokeWidth"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#1890ff" />
+                </marker>
+                <marker
+                  id="arrowhead-draft"
+                  markerWidth="10"
+                  markerHeight="7"
+                  refX="9"
+                  refY="3.5"
+                  orient="auto"
+                  markerUnits="strokeWidth"
+                >
+                  <polygon points="0 0, 10 3.5, 0 7" fill="#52c41a" />
+                </marker>
+              </defs>
               {renderConnections()}
             </svg>
             {nodes.map(node => {
