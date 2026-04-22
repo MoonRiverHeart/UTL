@@ -11,6 +11,8 @@ const NODE_TYPES = [
   { value: 'scenario', label: '场景', color: '#1890ff' },
   { value: 'function', label: '功能', color: '#52c41a' },
   { value: 'test_point', label: '测试点', color: '#faad14' },
+  { value: 'attr', label: '属性', color: '#9c27b0' },
+  { value: 'method', label: '方法', color: '#00bcd4' },
   { value: 'action_factor', label: '动作因子', color: '#722ed1' },
   { value: 'data_factor', label: '数据因子', color: '#eb2f96' },
   { value: 'test_case', label: '测试用例', color: '#13c2c2' },

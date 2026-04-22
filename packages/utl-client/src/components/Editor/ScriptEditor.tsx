@@ -10,7 +10,7 @@ import { useEditorStore } from '../../stores/editorStore';
 const UTL_LANGUAGE = {
   defaultToken: '',
   tokenPostfix: '.utl',
-  keywords: ['场景', 'SCENARIO', '功能', 'FUNCTION', '测试点', 'TEST_POINT', '动作因子', 'ACTION_FACTOR', '数据因子', 'DATA_FACTOR', '测试用例', 'TEST_CASE', '预制条件', 'PRECONDITION', '测试步骤', 'TEST_STEP', '预期结果', 'EXPECTED_RESULT', '继承', 'EXTENDS', '导入', 'IMPORT', '导出', 'EXPORT', '抽象', 'ABSTRACT', '描述', 'DESCRIPTION', '合并策略', '覆盖', '合并', '报错', '来源', 'FROM', '参数', 'WITH', '测试流程', 'TEST_FLOW', '序列', 'SEQUENCE', '调用', 'CALL', '断言', 'ASSERT'],
+  keywords: ['场景', 'SCENARIO', '功能', 'FUNCTION', '测试点', 'TEST_POINT', '动作因子', 'ACTION_FACTOR', '数据因子', 'DATA_FACTOR', '属性', 'ATTR', '方法', 'METHOD', '测试用例', 'TEST_CASE', '预制条件', 'PRECONDITION', '测试步骤', 'TEST_STEP', '预期结果', 'EXPECTED_RESULT', '继承', 'EXTENDS', '导入', 'IMPORT', '导出', 'EXPORT', '抽象', 'ABSTRACT', '描述', 'DESCRIPTION', '合并策略', '覆盖', '合并', '报错', '来源', 'FROM', '参数', 'WITH', '测试流程', 'TEST_FLOW', '序列', 'SEQUENCE', '调用', 'CALL', '断言', 'ASSERT'],
   tokenizer: {
     root: [
       [/[a-zA-Z_]\w*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
@@ -32,6 +32,8 @@ const TYPE_MAP: Record<string, string> = {
   '测试点': 'test_point', 'TEST_POINT': 'test_point',
   '动作因子': 'action_factor', 'ACTION_FACTOR': 'action_factor',
   '数据因子': 'data_factor', 'DATA_FACTOR': 'data_factor',
+  '属性': 'attr', 'ATTR': 'attr',
+  '方法': 'method', 'METHOD': 'method',
   '测试用例': 'test_case', 'TEST_CASE': 'test_case',
   '预制条件': 'precondition', 'PRECONDITION': 'precondition',
   '测试步骤': 'test_step', 'TEST_STEP': 'test_step',
@@ -133,12 +135,31 @@ export default function ScriptEditor() {
         if (child?.type === 'test_point') {
           utl += `  测试点 "${child.name}" {\n`;
           const tpChildren = relationsData.filter(r => r.sourceId === child.id && r.type === 'contains');
-          for (const tcr of tpChildren) {
+          
+          const attrFactors = tpChildren.filter(tcr => {
             const tc = nodesData.find(n => n.id === tcr.targetId);
-            if (tc?.type === 'action_factor') utl += `    动作因子 "${tc.name}"\n`;
-            if (tc?.type === 'data_factor') utl += `    数据因子 "${tc.name}"\n`;
-            if (tc?.type === 'test_case') {
-              utl += `    测试用例 "${tc.name}" {\n`;
+            return tc?.type === 'action_factor' || tc?.type === 'data_factor';
+          });
+          
+          if (attrFactors.length > 0) {
+            utl += `    属性 {\n`;
+            for (const tcr of attrFactors) {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              if (tc?.type === 'action_factor') utl += `      动作因子 "${tc.name}"\n`;
+              if (tc?.type === 'data_factor') utl += `      数据因子 "${tc.name}"\n`;
+            }
+            utl += `    }\n`;
+          }
+          
+          const testCases = tpChildren.filter(tcr => {
+            const tc = nodesData.find(n => n.id === tcr.targetId);
+            return tc?.type === 'test_case';
+          });
+          
+          for (const tcr of testCases) {
+            const tc = nodesData.find(n => n.id === tcr.targetId);
+            if (tc) {
+              utl += `    方法 "${tc.name}" {\n`;
               const tcChildren = relationsData.filter(r => r.sourceId === tc.id && r.type === 'contains');
               for (const ccr of tcChildren) {
                 const c = nodesData.find(n => n.id === ccr.targetId);
@@ -149,6 +170,23 @@ export default function ScriptEditor() {
               utl += `    }\n`;
             }
           }
+          
+          const otherChildren = tpChildren.filter(tcr => {
+            const tc = nodesData.find(n => n.id === tcr.targetId);
+            return tc?.type === 'precondition' || tc?.type === 'test_step' || tc?.type === 'expected_result';
+          });
+          
+          if (otherChildren.length > 0) {
+            utl += `    方法 "默认测试" {\n`;
+            for (const tcr of otherChildren) {
+              const tc = nodesData.find(n => n.id === tcr.targetId);
+              if (tc?.type === 'precondition') utl += `      预制条件 "${tc.name}"\n`;
+              if (tc?.type === 'test_step') utl += `      测试步骤 "${tc.name}"\n`;
+              if (tc?.type === 'expected_result') utl += `      预期结果 "${tc.name}"\n`;
+            }
+            utl += `    }\n`;
+          }
+          
           utl += `  }\n`;
         }
         if (child?.type === 'action_factor') utl += `  动作因子 "${child.name}"\n`;
@@ -192,6 +230,14 @@ export default function ScriptEditor() {
             }
           } else if (parentStack.length > 0) {
             newNodes.push(node);
+            if (parentStack.length > 0) {
+              const parent = parentStack[parentStack.length - 1];
+              newRelations.push({
+                source: `parsed-${parent.index}`,
+                target: `parsed-${index}`,
+                type: 'contains',
+              });
+            }
           }
           break;
         }
